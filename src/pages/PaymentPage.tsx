@@ -1,0 +1,257 @@
+import { useState, useRef, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import TopBar from '../components/TopBar'
+import { useStore } from '../stores/useStore'
+import { saveImage } from '../services/imageDB'
+import { printer } from '../services/bluetoothPrinter'
+
+type Step = 'qr' | 'photo'
+
+export default function PaymentPage() {
+  const { orderId } = useParams<{ orderId: string }>()
+  const navigate = useNavigate()
+
+  const orders = useStore(s => s.orders)
+  const menuItems = useStore(s => s.menuItems)
+  const settings = useStore(s => s.settings)
+  const updateOrder = useStore(s => s.updateOrder)
+  const showToast = useStore(s => s.showToast)
+
+  const order = orders.find(o => o.id === orderId)
+
+  const [step, setStep] = useState<Step>('qr')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
+
+  if (!order) {
+    return (
+      <div className="h-dvh flex flex-col bg-cream">
+        <TopBar title="תשלום" titleEn="Payment" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-navy/40 font-body">הזמנה לא נמצאה / Order not found</div>
+        </div>
+      </div>
+    )
+  }
+
+  const typeLabel = order.orderType === 'sit_down' ? '🪑 ישיבה / Sit Down' : '🥡 לקחת / Take Away'
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    const url = URL.createObjectURL(file)
+    setImagePreview(url)
+  }
+
+  async function handleConfirm() {
+    if (!imageFile || confirming) return
+    setConfirming(true)
+    try {
+      const imageKey = `proof_${order!.id}_${Date.now()}`
+      await saveImage(imageKey, imageFile)
+
+      const now = new Date().toISOString()
+      updateOrder(order!.id, {
+        status: 'sent_to_kitchen',
+        paidAt: now,
+        sentToKitchenAt: now,
+        paymentProofImageKey: imageKey,
+      })
+
+      try {
+        if (printer.isConnected) {
+          await printer.printKitchenTicket({ ...order!, status: 'sent_to_kitchen', paidAt: now }, menuItems)
+        }
+      } catch (printErr) {
+        console.warn('Print failed:', printErr)
+      }
+
+      showToast('✓ הזמנה נשלחה למטבח / Order sent to kitchen')
+      navigate('/orders')
+    } catch (err) {
+      console.error(err)
+      showToast('שגיאה בשמירת התשלום / Error saving payment', 'error')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  return (
+    <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+      <TopBar title="תשלום" titleEn="Payment" />
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-lg mx-auto p-6 space-y-6">
+
+          {/* Order summary */}
+          <div className="bg-white rounded-2xl border-2 border-navy/15 p-5 shadow-sm">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="font-display font-black text-navy text-2xl">{order.id}</div>
+                <div className="font-body text-navy/50 text-sm mt-0.5">{typeLabel}</div>
+              </div>
+              <div className="font-display font-black text-gold text-4xl">₪{order.totalPrice}</div>
+            </div>
+            <div className="border-t border-navy/10 pt-3 space-y-1">
+              {order.items.map(oi => {
+                const mi = menuItems.find(m => m.id === oi.menuItemId)
+                if (!mi) return null
+                return (
+                  <div key={oi.menuItemId} className="flex justify-between text-sm font-body">
+                    <span className="text-navy/70">{oi.quantity}× {mi.nameHe}</span>
+                    <span className="text-navy/50">₪{mi.price * oi.quantity}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Step indicator */}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 text-sm font-body ${step === 'qr' ? 'text-navy font-semibold' : 'text-green-600'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'qr' ? 'bg-navy text-cream' : 'bg-green-100 text-green-600'}`}>
+                {step === 'photo' ? '✓' : '1'}
+              </span>
+              קוד QR
+            </div>
+            <div className="h-px flex-1 bg-navy/10" />
+            <div className={`flex items-center gap-2 text-sm font-body ${step === 'photo' ? 'text-navy font-semibold' : 'text-navy/30'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'photo' ? 'bg-navy text-cream' : 'bg-navy/10 text-navy/30'}`}>
+                2
+              </span>
+              אישור תשלום
+            </div>
+          </div>
+
+          {/* Step 1: QR Code */}
+          {step === 'qr' && (
+            <div className="animate-fade-in space-y-5">
+              <div className="bg-white rounded-2xl border-2 border-navy/15 p-6 flex flex-col items-center gap-4 shadow-sm">
+                <div className="font-body text-navy/60 text-sm">סרוק עם Bit לתשלום / Scan with Bit to pay</div>
+
+                {settings.bitQRImage ? (
+                  <div className="p-3 bg-white rounded-xl border-2 border-navy/10 double-border">
+                    <img
+                      src={settings.bitQRImage}
+                      alt="Bit QR code"
+                      className="w-52 h-52 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-52 h-52 rounded-xl border-2 border-dashed border-navy/20 flex flex-col items-center justify-center gap-2 text-navy/30 bg-navy/3">
+                    <span className="text-4xl">📷</span>
+                    <div className="font-body text-xs text-center px-4">
+                      העלה תמונת QR של Bit בהגדרות<br />
+                      <span className="text-navy/20">Upload Bit QR image in Settings</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="font-display font-black text-navy text-3xl">₪{order.totalPrice}</div>
+              </div>
+
+              <button
+                onClick={() => setStep('photo')}
+                className="w-full py-5 rounded-2xl bg-navy text-cream font-display font-bold text-lg shadow-md hover:bg-navy/80 active:scale-95 transition-all double-border"
+              >
+                <div>הלקוח שילם — צלם אישור</div>
+                <div className="text-cream/60 text-sm font-body mt-0.5">Customer Paid — Take Photo</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  updateOrder(order!.id, { status: 'cancelled' })
+                  navigate('/orders')
+                }}
+                className="w-full py-3 rounded-xl border-2 border-navy/20 text-navy/60 font-body text-sm hover:border-navy/50 transition-colors"
+              >
+                ← בטל וחזור להזמנות / Cancel & Go Back
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Photo proof */}
+          {step === 'photo' && (
+            <div className="animate-fade-in space-y-5">
+              <div className="font-body text-navy/60 text-sm text-center">צלם את אישור התשלום על מסך הלקוח</div>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {!imagePreview ? (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full h-52 rounded-2xl border-2 border-dashed border-navy/30 hover:border-gold hover:bg-gold/5 transition-all flex flex-col items-center justify-center gap-3 text-navy/40"
+                >
+                  <span className="text-5xl">📸</span>
+                  <div className="font-body text-sm">לחץ לצילום<br /><span className="text-xs">Tap to capture</span></div>
+                </button>
+              ) : (
+                <div className="relative rounded-2xl overflow-hidden border-2 border-gold shadow-md">
+                  <img src={imagePreview} alt="payment proof" className="w-full max-h-72 object-cover" />
+                  <button
+                    onClick={() => { setImageFile(null); setImagePreview(null); fileRef.current?.click() }}
+                    className="absolute top-3 left-3 bg-black/60 text-white rounded-full px-3 py-1.5 text-xs font-body"
+                  >
+                    צלם שוב / Retake
+                  </button>
+                  <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full px-3 py-1.5 text-xs font-body font-semibold">
+                    ✓ צולם
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleConfirm}
+                disabled={!imageFile || confirming}
+                className={`
+                  w-full py-5 rounded-2xl font-display font-bold text-lg shadow-md transition-all
+                  ${imageFile && !confirming
+                    ? 'bg-gold text-navy hover:bg-gold/90 active:scale-95 double-border-gold'
+                    : 'bg-navy/10 text-navy/30 cursor-not-allowed'
+                  }
+                `}
+              >
+                {confirming ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-navy/30 border-t-navy rounded-full animate-spin" />
+                    <span className="font-body text-base">שולח...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div>אשר ושלח למטבח</div>
+                    <div className={`text-sm font-body mt-0.5 ${imageFile ? 'text-navy/60' : 'text-navy/20'}`}>
+                      Confirm & Send to Kitchen
+                    </div>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setStep('qr')}
+                className="w-full py-3 rounded-xl border-2 border-navy/20 text-navy/60 font-body text-sm hover:border-navy/50 transition-colors"
+              >
+                ← חזור לקוד QR
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
