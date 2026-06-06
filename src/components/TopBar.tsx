@@ -1,12 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../stores/useStore'
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'מנהל',
-  waitress: 'הזמנות',
-  kitchen: 'מטבח',
-}
-
 interface Props {
   title: string
   titleEn?: string
@@ -14,7 +8,6 @@ interface Props {
 }
 
 export default function TopBar({ title, titleEn, actions }: Props) {
-  const currentRole = useStore(s => s.currentRole)
   const logout = useStore(s => s.logout)
   const navigate = useNavigate()
 
@@ -35,11 +28,6 @@ export default function TopBar({ title, titleEn, actions }: Props) {
       </div>
       <div className="flex items-center gap-3">
         {actions}
-        {currentRole && (
-          <span className="text-gold/70 text-xs hidden sm:block">
-            {ROLE_LABELS[currentRole]}
-          </span>
-        )}
         <button
           onClick={handleLogout}
           className="text-xs text-cream/70 hover:text-cream border border-cream/20 hover:border-cream/50 rounded px-3 py-1.5 transition-colors min-h-[36px]"

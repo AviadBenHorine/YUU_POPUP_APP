@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(lsof -ti:5174)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

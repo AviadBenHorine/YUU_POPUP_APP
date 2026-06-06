@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   DndContext, DragOverlay,
@@ -10,7 +10,7 @@ import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import BrowserWarning from '../components/BrowserWarning'
 import { useStore } from '../stores/useStore'
-import type { MenuItem, OrderType, MenuCategory } from '../types'
+import type { MenuItem, MenuCategory } from '../types'
 
 // ─── Draggable menu item ───
 function DraggableMenuItem({ item }: { item: MenuItem }) {
@@ -21,16 +21,15 @@ function DraggableMenuItem({ item }: { item: MenuItem }) {
       {...attributes}
       {...listeners}
       className={`
-        bg-white rounded-xl border-2 border-navy/10 p-3 cursor-grab active:cursor-grabbing
-        hover:border-gold hover:shadow-md transition-all select-none touch-none
+        bg-white rounded-xl border-2 border-navy/10 p-2 cursor-grab active:cursor-grabbing
+        hover:border-gold hover:shadow-md transition-all select-none touch-none flex flex-col
         ${isDragging ? 'opacity-30' : ''}
       `}
       style={{ touchAction: 'none' }}
     >
-      <div className="text-2xl mb-1">{item.emoji}</div>
-      <div className="font-body font-semibold text-navy text-sm leading-tight">{item.nameHe}</div>
-      <div className="font-body text-navy/50 text-xs">{item.name}</div>
-      <div className="font-display font-bold text-gold text-sm mt-1">₪{item.price}</div>
+      <div className="text-2xl leading-none mb-1">{item.emoji}</div>
+      <div className="font-body font-semibold text-navy text-xs leading-tight flex-1">{item.nameHe}</div>
+      <div className="font-display font-bold text-gold text-xs mt-1">₪{item.price}</div>
     </div>
   )
 }
@@ -42,8 +41,8 @@ function OrderDropZone({ children }: { children: React.ReactNode }) {
     <div
       ref={setNodeRef}
       className={`
-        flex-1 min-h-0 overflow-y-auto transition-colors rounded-xl
-        ${isOver ? 'bg-gold/10 ring-2 ring-gold' : ''}
+        flex-1 min-h-0 overflow-y-auto transition-colors
+        ${isOver ? 'bg-gold/10 ring-2 ring-gold ring-inset' : ''}
       `}
     >
       {children}
@@ -51,35 +50,39 @@ function OrderDropZone({ children }: { children: React.ReactNode }) {
   )
 }
 
-
 const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string; icon: string }> = {
-  food: { he: 'אוכל', en: 'Food', icon: '🍽' },
-  drink: { he: 'שתייה', en: 'Drinks', icon: '🥤' },
+  food:    { he: 'אוכל',    en: 'Food',     icon: '🍽' },
+  drink:   { he: 'שתייה',   en: 'Drinks',   icon: '🥤' },
   dessert: { he: 'קינוחים', en: 'Desserts', icon: '🍮' },
 }
 
 export default function WaitressPage() {
-  const menuItems = useStore(s => s.menuItems)
-  const draftItems = useStore(s => s.draftItems)
-  const draftType = useStore(s => s.draftType)
+  const menuItems    = useStore(s => s.menuItems)
+  const draftItems   = useStore(s => s.draftItems)
+  const draftType    = useStore(s => s.draftType)
   const setDraftItems = useStore(s => s.setDraftItems)
-  const setDraftType = useStore(s => s.setDraftType)
-  const clearDraft = useStore(s => s.clearDraft)
-  const createOrder = useStore(s => s.createOrder)
-  const showToast = useStore(s => s.showToast)
+  const setDraftType  = useStore(s => s.setDraftType)
+  const clearDraft    = useStore(s => s.clearDraft)
+  const createOrder   = useStore(s => s.createOrder)
+  const showToast     = useStore(s => s.showToast)
 
   const navigate = useNavigate()
-  const [activeItem, setActiveItem] = useState<MenuItem | null>(null)
-  const [notesModal, setNotesModal] = useState<{ itemId: string; notes: string } | null>(null)
-  const [cancelModal, setCancelModal] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState<MenuCategory | 'all'>('all')
+  const [activeItem, setActiveItem]     = useState<MenuItem | null>(null)
+  const [notesModal, setNotesModal]     = useState<{ itemId: string; notes: string } | null>(null)
+  const [cancelModal, setCancelModal]   = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
+
+  // Always default to sit_down — never leave type unset
+  useEffect(() => {
+    if (!draftType) setDraftType('sit_down')
+  }, [draftType])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 8 } }),
   )
 
-  const availableItems = menuItems.filter(m => m.available && (categoryFilter === 'all' || m.category === categoryFilter))
+  const visibleItems = menuItems.filter(m => m.available && m.category === categoryFilter)
 
   const totalPrice = draftItems.reduce((sum, oi) => {
     const mi = menuItems.find(m => m.id === oi.menuItemId)
@@ -87,17 +90,14 @@ export default function WaitressPage() {
   }, 0)
 
   function handleDragStart(e: DragStartEvent) {
-    const item = e.active.data.current?.item as MenuItem | undefined
-    setActiveItem(item ?? null)
+    setActiveItem(e.active.data.current?.item as MenuItem ?? null)
   }
 
   function handleDragEnd(e: DragEndEvent) {
     setActiveItem(null)
     const { over, active } = e
     if (!over) return
-
     const item = active.data.current?.item as MenuItem | undefined
-
     if (over.id === 'order-zone' && item) {
       const existing = draftItems.find(oi => oi.menuItemId === item.id)
       if (existing) {
@@ -121,13 +121,15 @@ export default function WaitressPage() {
 
   function saveNotes(notes: string) {
     if (!notesModal) return
-    setDraftItems(draftItems.map(oi => oi.menuItemId === notesModal.itemId ? { ...oi, notes: notes || undefined } : oi))
+    setDraftItems(draftItems.map(oi =>
+      oi.menuItemId === notesModal.itemId ? { ...oi, notes: notes || undefined } : oi
+    ))
     setNotesModal(null)
   }
 
   function handleProceedToPayment() {
-    if (!draftType || draftItems.length === 0) return
-    const order = createOrder(draftType, draftItems)
+    if (draftItems.length === 0) return
+    const order = createOrder(draftType ?? 'sit_down', draftItems)
     clearDraft()
     navigate(`/payment/${order.id}`)
   }
@@ -138,70 +140,82 @@ export default function WaitressPage() {
     showToast('ההזמנה בוטלה / Order cancelled', 'error')
   }
 
-  const canProceed = draftItems.length > 0 && draftType !== null
+  const isTakeAway = draftType === 'take_away'
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="h-dvh flex flex-col bg-cream overflow-hidden">
         <BrowserWarning />
         <TopBar title="הזמנות" titleEn="Orders" />
 
-        <div className="flex-1 flex min-h-0 gap-0 overflow-hidden">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
 
-          {/* ─── Left: Menu ─── */}
-          <div className="w-[30%] flex flex-col bg-white border-l-2 border-navy/10 min-h-0">
-            <div className="px-3 py-3 border-b border-navy/10">
-              <div className="font-display font-bold text-navy text-sm mb-2">תפריט / Menu</div>
-              <div className="flex gap-1 flex-wrap">
-                {(['all', 'food', 'drink', 'dessert'] as const).map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`
-                      text-xs px-2 py-1 rounded-full border transition-colors font-body
-                      ${categoryFilter === cat
-                        ? 'bg-navy text-cream border-navy'
-                        : 'bg-transparent text-navy/60 border-navy/20 hover:border-navy/50'
-                      }
-                    `}
-                  >
-                    {cat === 'all' ? 'הכל' : CATEGORY_LABELS[cat].he}
-                  </button>
-                ))}
-              </div>
+          {/* ─── Left panel: Menu ─── */}
+          <div className="w-[40%] flex flex-col bg-white border-l-2 border-navy/10 min-h-0">
+
+            {/* Category tab bar */}
+            <div className="flex gap-2 p-2 border-b-2 border-navy/10 bg-cream/60 shrink-0">
+              {(['food', 'drink', 'dessert'] as MenuCategory[]).map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`
+                    flex-1 py-3.5 rounded-xl flex flex-col items-center gap-1.5 transition-all
+                    ${categoryFilter === cat
+                      ? 'bg-navy text-cream shadow-md ring-2 ring-navy/20 ring-offset-1'
+                      : 'bg-white text-navy/40 border-2 border-navy/10 hover:border-navy/25 hover:text-navy/60'
+                    }
+                  `}
+                >
+                  <span className={`leading-none transition-all ${categoryFilter === cat ? 'text-3xl' : 'text-2xl'}`}>
+                    {CATEGORY_LABELS[cat].icon}
+                  </span>
+                  <span className={`font-display font-bold transition-all ${categoryFilter === cat ? 'text-sm' : 'text-xs text-navy/40'}`}>
+                    {CATEGORY_LABELS[cat].he}
+                  </span>
+                </button>
+              ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2">
-              {(['food', 'drink', 'dessert'] as MenuCategory[]).map(cat => {
-                if (categoryFilter !== 'all' && categoryFilter !== cat) return null
-                const catItems = availableItems.filter(m => m.category === cat)
-                if (catItems.length === 0) return null
-                return (
-                  <div key={cat} className="mb-3">
-                    <div className="flex items-center gap-1 text-xs text-navy/40 font-body uppercase tracking-wider mb-2 px-1">
-                      <span>{CATEGORY_LABELS[cat].icon}</span>
-                      <span>{CATEGORY_LABELS[cat].he}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {catItems.map(item => <DraggableMenuItem key={item.id} item={item} />)}
-                    </div>
-                  </div>
-                )
-              })}
+            {/* Item grid */}
+            <div className="flex-1 p-2 grid grid-cols-3 gap-1.5 content-start overflow-y-auto">
+              {visibleItems.length === 0 ? (
+                <div className="col-span-3 py-12 flex flex-col items-center justify-center text-navy/25 select-none">
+                  <div className="text-3xl mb-2">{CATEGORY_LABELS[categoryFilter].icon}</div>
+                  <div className="font-body text-xs text-center">אין פריטים זמינים<br />No items available</div>
+                </div>
+              ) : (
+                visibleItems.map(item => <DraggableMenuItem key={item.id} item={item} />)
+              )}
             </div>
           </div>
 
-          {/* ─── Center: Order ─── */}
-          <div className="flex-1 flex flex-col min-h-0 bg-cream-dark/40 border-l-2 border-navy/10">
-            {/* Order type badge */}
-            <div className="px-4 py-2 border-b border-navy/10 flex items-center justify-between">
-              <span className="font-body text-sm text-navy/50">
-                {draftType === 'sit_down' ? '🪑 ישיבה / Sit Down' : draftType === 'take_away' ? '🥡 לקחת / Take Away' : <span className="text-amber-600">בחר סוג הזמנה ▸</span>}
-              </span>
+          {/* ─── Right panel: Order zone ─── */}
+          <div className="flex-1 flex flex-col min-h-0 bg-cream/40 border-l-2 border-navy/10">
+
+            {/* Order zone header: take-away toggle + item count */}
+            <div className="px-4 py-2.5 border-b-2 border-navy/10 flex items-center justify-between shrink-0 bg-white/60">
+              {/* Take-away toggle */}
+              <button
+                onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
+                className={`
+                  flex items-center gap-2.5 px-3.5 py-2 rounded-xl border-2 font-body text-sm transition-all
+                  ${isTakeAway
+                    ? 'border-gold bg-gold/10 text-navy font-semibold shadow-sm'
+                    : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
+                  }
+                `}
+              >
+                {/* Checkbox */}
+                <span className={`
+                  w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
+                  ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}
+                `}>
+                  {isTakeAway && '✓'}
+                </span>
+                <span>🥡 לקחת / Take Away</span>
+              </button>
+
               <span className="font-body text-xs text-navy/40">{draftItems.length} פריטים</span>
             </div>
 
@@ -210,7 +224,10 @@ export default function WaitressPage() {
               {draftItems.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-navy/25 select-none p-8">
                   <div className="text-5xl mb-3">🍽</div>
-                  <div className="font-body text-sm text-center">גרור פריטים לכאן<br /><span className="text-xs">Drag items here</span></div>
+                  <div className="font-body text-sm text-center">
+                    גרור פריטים לכאן<br />
+                    <span className="text-xs">Drag items here</span>
+                  </div>
                 </div>
               ) : (
                 <div className="p-3 space-y-2">
@@ -218,8 +235,7 @@ export default function WaitressPage() {
                     const mi = menuItems.find(m => m.id === oi.menuItemId)
                     if (!mi) return null
                     return (
-                      <div
-                        key={oi.menuItemId}
+                      <div key={oi.menuItemId}
                         className="bg-white rounded-xl border-2 border-navy/10 p-3 flex items-center gap-3"
                       >
                         <span className="text-xl">{mi.emoji}</span>
@@ -236,11 +252,8 @@ export default function WaitressPage() {
                           onPointerDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
                           onClick={() => setNotesModal({ itemId: oi.menuItemId, notes: oi.notes ?? '' })}
-                          className="text-navy/60 text-base transition-colors w-8 h-8 flex items-center justify-center shrink-0"
-                          title="הוסף הערה"
-                        >
-                          ✏️
-                        </button>
+                          className="text-navy/40 hover:text-navy/70 text-base transition-colors w-8 h-8 flex items-center justify-center shrink-0"
+                        >✏️</button>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onPointerDown={e => e.stopPropagation()}
@@ -263,62 +276,37 @@ export default function WaitressPage() {
               )}
             </OrderDropZone>
 
-            {/* Total */}
-            <div className="border-t-2 border-navy/10 px-4 py-3 flex items-center justify-between bg-white/60">
-              <span className="font-body text-navy/60 text-sm">סה"כ / Total</span>
-              <span className="font-display font-black text-navy text-2xl">₪{totalPrice}</span>
-            </div>
-          </div>
-
-          {/* ─── Right: Type + Actions ─── */}
-          <div className="w-[28%] flex flex-col bg-white border-l-2 border-navy/10 min-h-0">
-            <div className="flex-1 p-4 flex flex-col gap-4">
-              <div>
-                <div className="font-display font-bold text-navy text-sm mb-3">סוג הזמנה / Order Type</div>
-                <div className="grid grid-cols-1 gap-3">
-                  {[
-                    { type: 'sit_down' as OrderType, icon: '🪑', he: 'ישיבה', en: 'Sit Down' },
-                    { type: 'take_away' as OrderType, icon: '🥡', he: 'לקחת', en: 'Take Away' },
-                  ].map(opt => (
-                    <button
-                      key={opt.type}
-                      onClick={() => setDraftType(draftType === opt.type ? null : opt.type)}
-                      className={`
-                        p-4 rounded-2xl border-2 transition-all text-right
-                        ${draftType === opt.type
-                          ? 'bg-navy border-navy text-cream shadow-md'
-                          : 'bg-cream border-navy/20 text-navy hover:border-navy/50'
-                        }
-                      `}
-                    >
-                      <div className="text-3xl mb-1">{opt.icon}</div>
-                      <div className="font-display font-bold text-lg">{opt.he}</div>
-                      <div className={`text-sm font-body ${draftType === opt.type ? 'text-cream/60' : 'text-navy/50'}`}>{opt.en}</div>
-                    </button>
-                  ))}
-                </div>
+            {/* Footer: total + actions */}
+            <div className="shrink-0 border-t-2 border-navy/10 bg-white/70">
+              {/* Total */}
+              <div className="px-4 py-3 flex items-center justify-between border-b border-navy/8">
+                <span className="font-body text-navy/60 text-sm">סה"כ / Total</span>
+                <span className="font-display font-black text-navy text-2xl">₪{totalPrice}</span>
               </div>
 
-              <div className="mt-auto flex flex-col gap-3">
+              {/* Buttons */}
+              <div className="px-4 py-3 flex flex-col gap-2">
                 <button
                   onClick={handleProceedToPayment}
-                  disabled={!canProceed}
+                  disabled={draftItems.length === 0}
                   className={`
-                    w-full py-4 rounded-2xl font-display font-bold text-base transition-all
-                    ${canProceed
+                    w-full py-4 rounded-2xl font-display font-bold text-lg transition-all
+                    ${draftItems.length > 0
                       ? 'bg-gold text-navy hover:bg-gold/90 active:scale-95 shadow-md double-border-gold'
                       : 'bg-navy/10 text-navy/30 cursor-not-allowed'
                     }
                   `}
                 >
                   <div>לתשלום</div>
-                  <div className={`text-xs font-body mt-0.5 ${canProceed ? 'text-navy/60' : 'text-navy/20'}`}>Proceed to Payment</div>
+                  <div className={`text-xs font-body mt-0.5 ${draftItems.length > 0 ? 'text-navy/60' : 'text-navy/20'}`}>
+                    Proceed to Payment
+                  </div>
                 </button>
 
                 {draftItems.length > 0 && (
                   <button
                     onClick={() => setCancelModal(true)}
-                    className="w-full py-3 rounded-xl border-2 border-red-200 text-red-400 hover:border-red-400 hover:text-red-600 font-body text-sm transition-colors"
+                    className="w-full py-2.5 rounded-xl border-2 border-red-200 text-red-400 hover:border-red-400 hover:text-red-600 font-body text-sm transition-colors"
                   >
                     בטל הזמנה / Cancel Order
                   </button>
@@ -332,7 +320,7 @@ export default function WaitressPage() {
       {/* Drag overlay */}
       <DragOverlay>
         {activeItem && (
-          <div className="drag-overlay bg-white rounded-xl border-2 border-gold p-3 w-32">
+          <div className="drag-overlay bg-white rounded-xl border-2 border-gold p-3 w-28">
             <div className="text-2xl mb-1">{activeItem.emoji}</div>
             <div className="font-body font-semibold text-navy text-xs leading-tight">{activeItem.nameHe}</div>
             <div className="font-display font-bold text-gold text-sm mt-1">₪{activeItem.price}</div>
@@ -353,16 +341,12 @@ export default function WaitressPage() {
               autoFocus
             />
             <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => saveNotes(notesModal.notes)}
-                className="flex-1 py-3 bg-navy text-cream rounded-xl font-display font-bold text-sm hover:bg-navy/80 transition-colors"
-              >
+              <button onClick={() => saveNotes(notesModal.notes)}
+                className="flex-1 py-3 bg-navy text-cream rounded-xl font-display font-bold text-sm hover:bg-navy/80 transition-colors">
                 שמור / Save
               </button>
-              <button
-                onClick={() => setNotesModal(null)}
-                className="flex-1 py-3 border-2 border-navy/20 text-navy rounded-xl font-body text-sm hover:border-navy/50 transition-colors"
-              >
+              <button onClick={() => setNotesModal(null)}
+                className="flex-1 py-3 border-2 border-navy/20 text-navy rounded-xl font-body text-sm hover:border-navy/50 transition-colors">
                 ביטול / Cancel
               </button>
             </div>
@@ -374,16 +358,12 @@ export default function WaitressPage() {
       <Modal open={cancelModal} onClose={() => setCancelModal(false)} title="ביטול הזמנה / Cancel Order">
         <p className="font-body text-navy/70 mb-6 text-sm">האם לבטל את ההזמנה הנוכחית? לא ניתן לבטל פעולה זו.</p>
         <div className="flex gap-3">
-          <button
-            onClick={handleCancel}
-            className="flex-1 py-3 bg-red-500 text-white rounded-xl font-display font-bold text-sm hover:bg-red-600 transition-colors"
-          >
+          <button onClick={handleCancel}
+            className="flex-1 py-3 bg-red-500 text-white rounded-xl font-display font-bold text-sm hover:bg-red-600 transition-colors">
             בטל הזמנה
           </button>
-          <button
-            onClick={() => setCancelModal(false)}
-            className="flex-1 py-3 border-2 border-navy/20 text-navy rounded-xl font-body text-sm hover:border-navy/50 transition-colors"
-          >
+          <button onClick={() => setCancelModal(false)}
+            className="flex-1 py-3 border-2 border-navy/20 text-navy rounded-xl font-body text-sm hover:border-navy/50 transition-colors">
             חזור
           </button>
         </div>
