@@ -5,7 +5,7 @@ import { useStore } from '../stores/useStore'
 import { saveImage } from '../services/imageDB'
 import { printer } from '../services/bluetoothPrinter'
 
-type Step = 'qr' | 'photo'
+type Step = 'qr' | 'photo' | 'confirmation'
 
 export default function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -76,7 +76,7 @@ export default function PaymentPage() {
       }
 
       showToast('✓ הזמנה נשלחה למטבח / Order sent to kitchen')
-      navigate('/orders')
+      setStep('confirmation')
     } catch (err) {
       console.error(err)
       showToast('שגיאה בשמירת התשלום / Error saving payment', 'error')
@@ -116,21 +116,30 @@ export default function PaymentPage() {
           </div>
 
           {/* Step indicator */}
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 text-sm font-body ${step === 'qr' ? 'text-navy font-semibold' : 'text-green-600'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'qr' ? 'bg-navy text-cream' : 'bg-green-100 text-green-600'}`}>
-                {step === 'photo' ? '✓' : '1'}
-              </span>
-              קוד QR
+          {step !== 'confirmation' && (
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 text-sm font-body ${step === 'qr' ? 'text-navy font-semibold' : 'text-green-600'}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'qr' ? 'bg-navy text-cream' : 'bg-green-100 text-green-600'}`}>
+                  {step !== 'qr' ? '✓' : '1'}
+                </span>
+                קוד QR
+              </div>
+              <div className="h-px flex-1 bg-navy/10" />
+              <div className={`flex items-center gap-2 text-sm font-body ${step === 'photo' ? 'text-navy font-semibold' : 'text-navy/30'}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'photo' ? 'bg-navy text-cream' : 'bg-navy/10 text-navy/30'}`}>
+                  2
+                </span>
+                אישור תשלום
+              </div>
+              <div className="h-px flex-1 bg-navy/10" />
+              <div className="flex items-center gap-2 text-sm font-body text-navy/30">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-navy/10 text-navy/30">
+                  3
+                </span>
+                מספר הזמנה
+              </div>
             </div>
-            <div className="h-px flex-1 bg-navy/10" />
-            <div className={`flex items-center gap-2 text-sm font-body ${step === 'photo' ? 'text-navy font-semibold' : 'text-navy/30'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 'photo' ? 'bg-navy text-cream' : 'bg-navy/10 text-navy/30'}`}>
-                2
-              </span>
-              אישור תשלום
-            </div>
-          </div>
+          )}
 
           {/* Step 1: QR Code */}
           {step === 'qr' && (
@@ -248,6 +257,68 @@ export default function PaymentPage() {
               >
                 ← חזור לקוד QR
               </button>
+            </div>
+          )}
+
+          {/* Step 3: Order number confirmation */}
+          {step === 'confirmation' && (
+            <div className="animate-fade-in space-y-6 text-center">
+
+              {/* Success badge */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="text-green-500 text-3xl font-bold">✓</span>
+                </div>
+                <p className="font-body text-green-700 font-semibold text-sm">ההזמנה נשלחה למטבח!</p>
+                <p className="font-body text-navy/40 text-xs">Order sent to kitchen</p>
+              </div>
+
+              {/* Big order number card — customer photographs this */}
+              <div className="bg-white rounded-3xl border-4 border-navy shadow-xl p-8">
+                <p className="font-body text-navy/40 text-xs uppercase tracking-widest mb-3">מספר הזמנה / Order Number</p>
+                <div className="font-display font-black text-navy text-7xl tracking-widest leading-none">
+                  {order.id.replace('YUU-', '')}
+                </div>
+                <div className="text-navy/30 font-body text-sm mt-1 tracking-widest">YUU</div>
+
+                <div className="mt-5 border-t-2 border-navy/10 pt-4 space-y-1.5">
+                  {order.items.map(oi => {
+                    const mi = menuItems.find(m => m.id === oi.menuItemId)
+                    if (!mi) return null
+                    return (
+                      <div key={oi.menuItemId} className="flex justify-between text-sm font-body">
+                        <span className="text-navy/50">₪{mi.price * oi.quantity}</span>
+                        <span className="text-navy/70">{oi.quantity}× {mi.nameHe}</span>
+                      </div>
+                    )
+                  })}
+                  <div className="flex justify-between font-display font-bold text-navy text-base pt-2 border-t border-navy/10 mt-2">
+                    <span>₪{order.totalPrice}</span>
+                    <span>סה"כ</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs font-body text-navy/30">{typeLabel}</div>
+              </div>
+
+              {/* Instruction for customer */}
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-right">
+                <span className="text-3xl shrink-0">📸</span>
+                <div>
+                  <p className="font-body text-sm font-semibold text-amber-800">צלם את מספר ההזמנה לזכירה</p>
+                  <p className="font-body text-xs text-amber-600 mt-0.5">Take a photo of your order number to remember it</p>
+                </div>
+              </div>
+
+              {/* Done button — for the staff to dismiss */}
+              <button
+                onClick={() => navigate('/orders')}
+                className="w-full py-4 rounded-2xl bg-navy text-cream font-display font-bold text-lg shadow-md hover:bg-navy/80 active:scale-95 transition-all"
+              >
+                <div>סיום</div>
+                <div className="text-cream/50 text-sm font-body mt-0.5">Done</div>
+              </button>
+
             </div>
           )}
         </div>
