@@ -297,10 +297,7 @@ export default function WaitressPage() {
                     }
                   `}
                 >
-                  <div>לתשלום</div>
-                  <div className={`text-xs font-body mt-0.5 ${draftItems.length > 0 ? 'text-navy/60' : 'text-navy/20'}`}>
-                    Proceed to Payment
-                  </div>
+                  <div>המשך לגביית תשלום</div>
                 </button>
 
                 {draftItems.length > 0 && (
