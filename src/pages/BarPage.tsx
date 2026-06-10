@@ -25,7 +25,7 @@ function agingTextClass(since: string): string {
   return 'text-navy/50'
 }
 
-function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' | 'bar' }) {
+function BarCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' | 'bar' }) {
   const menuItems   = useStore(s => s.menuItems)
   const updateOrder = useStore(s => s.updateOrder)
   const showToast   = useStore(s => s.showToast)
@@ -38,12 +38,12 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
 
   const since = order.sentToKitchenAt ?? order.createdAt
 
-  // Kitchen handles food + desserts if dessertTo === 'kitchen'
+  // Bar handles drinks + desserts if dessertTo === 'bar'
   const myItems = order.items.filter(oi => {
     const mi = menuItems.find(m => m.id === oi.menuItemId)
     if (!mi) return false
-    if (mi.category === 'food') return true
-    if (mi.category === 'dessert' && dessertTo === 'kitchen') return true
+    if (mi.category === 'drink') return true
+    if (mi.category === 'dessert' && dessertTo === 'bar') return true
     return false
   })
 
@@ -59,14 +59,13 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
     const now = new Date().toISOString()
     const newChecked = { ...checked }
     myItems.forEach(oi => { newChecked[oi.menuItemId] = true })
-    // Order becomes 'ready' only when BOTH departments are done (or this is the only department)
     const allDone = order.items.every(oi => newChecked[oi.menuItemId] === true)
     updateOrder(order.id, {
       checkedItems: newChecked,
-      kitchenDoneAt: now,
+      barDoneAt: now,
       ...(allDone ? { status: 'ready', readyAt: now } : {}),
     })
-    showToast(allDone ? 'הזמנה מוכנה ✓ / Order ready' : 'מטבח סיים — ממתין לבר')
+    showToast(allDone ? 'הזמנה מוכנה ✓ / Order ready' : 'בר סיים — ממתין למטבח')
   }
 
   const doneCount = myItems.filter(oi => checked[oi.menuItemId]).length
@@ -105,13 +104,11 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
           const mi = menuItems.find(m => m.id === oi.menuItemId)
           if (!mi) return null
           const isDone = checked[oi.menuItemId] === true
+          const catIcon = mi.category === 'drink' ? '🍹' : '🍰'
           return (
-            <button
-              key={oi.menuItemId}
-              onClick={() => toggleItem(oi.menuItemId)}
+            <button key={oi.menuItemId} onClick={() => toggleItem(oi.menuItemId)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-right
-                ${isDone ? 'border-green-300 bg-green-50 opacity-70' : 'border-navy/15 bg-white hover:border-navy/30'}`}
-            >
+                ${isDone ? 'border-green-300 bg-green-50 opacity-70' : 'border-navy/15 bg-white hover:border-navy/30'}`}>
               <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all
                 ${isDone ? 'bg-green-500 border-green-500' : 'border-navy/30 bg-white'}`}>
                 {isDone && <span className="text-white text-xs font-bold">✓</span>}
@@ -120,8 +117,8 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
                 {oi.quantity}×
               </span>
               <div className="flex-1 min-w-0 text-right">
+                <span className="text-sm shrink-0 ml-1">{catIcon}</span>
                 <span className={`font-body font-semibold text-navy text-base ${isDone ? 'line-through opacity-50' : ''}`}>{mi.nameHe}</span>
-                {mi.category === 'dessert' && <span className="text-xs text-navy/30 font-body mr-1"> 🍮</span>}
                 {oi.notes && (
                   <div className="text-xs text-amber-700 italic font-body mt-0.5 bg-amber-50 px-2 py-0.5 rounded inline-block">⚠ {oi.notes}</div>
                 )}
@@ -154,7 +151,7 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
   )
 }
 
-function DoneOrderRow({ order, onUndo, waitingForBar, dessertTo }: { order: Order; onUndo: (id: string) => void; waitingForBar?: boolean; dessertTo: 'kitchen' | 'bar' }) {
+function DoneOrderRow({ order, onUndo, waitingForKitchen, dessertTo }: { order: Order; onUndo: (id: string) => void; waitingForKitchen?: boolean; dessertTo: 'kitchen' | 'bar' }) {
   const menuItems = useStore(s => s.menuItems)
   const typeLabel = order.orderType === 'sit_down' ? '🪑' : '🥡'
   const readyTime = order.readyAt
@@ -171,16 +168,16 @@ function DoneOrderRow({ order, onUndo, waitingForBar, dessertTo }: { order: Orde
             : <span className="font-display font-bold text-navy text-sm">{order.id}</span>
           }
           {order.customerName && <span className="font-body text-navy/30 text-xs">{order.id}</span>}
-          {waitingForBar
-            ? <span className="text-xs font-body text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⏳ ממתין לבר</span>
+          {waitingForKitchen
+            ? <span className="text-xs font-body text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⏳ ממתין למטבח</span>
             : readyTime && <span className="text-navy/30 text-xs font-body">הוגש {readyTime}</span>
           }
         </div>
         <div className="text-xs text-navy/50 font-body truncate">
           {order.items
             .filter(oi => {
-              const cat = menuItems.find(m => m.id === oi.menuItemId)?.category
-              return cat === 'food' || (cat === 'dessert' && dessertTo === 'kitchen')
+              const mi = menuItems.find(m => m.id === oi.menuItemId)
+              return mi?.category === 'drink' || (mi?.category === 'dessert' && dessertTo === 'bar')
             })
             .map(oi => {
               const mi = menuItems.find(m => m.id === oi.menuItemId)
@@ -196,7 +193,7 @@ function DoneOrderRow({ order, onUndo, waitingForBar, dessertTo }: { order: Orde
   )
 }
 
-export default function KitchenPage() {
+export default function BarPage() {
   const orders      = useStore(s => s.orders)
   const menuItems   = useStore(s => s.menuItems)
   const settings    = useStore(s => s.settings)
@@ -228,17 +225,16 @@ export default function KitchenPage() {
   const handleUndo = useCallback((id: string) => {
     const order = orders.find(o => o.id === id)
     if (!order) return
-    // Uncheck kitchen items and clear kitchenDoneAt so card reappears
     const newChecked = { ...(order.checkedItems ?? {}) }
     order.items.forEach(oi => {
       const mi = menuItems.find(m => m.id === oi.menuItemId)
       if (!mi) return
-      if (mi.category === 'food') delete newChecked[oi.menuItemId]
-      if (mi.category === 'dessert' && dessertTo === 'kitchen') delete newChecked[oi.menuItemId]
+      if (mi.category === 'drink') delete newChecked[oi.menuItemId]
+      if (mi.category === 'dessert' && dessertTo === 'bar') delete newChecked[oi.menuItemId]
     })
     updateOrder(id, {
       checkedItems: newChecked,
-      kitchenDoneAt: undefined,
+      barDoneAt: undefined,
       ...(order.status === 'ready' ? { status: 'sent_to_kitchen', readyAt: undefined } : {}),
     })
     showToast('הזמנה הוחזרה להכנה')
@@ -251,27 +247,26 @@ export default function KitchenPage() {
     showToast(num === null || isNaN(num as number) ? 'מלאי הוסר' : `מלאי עודכן: ${num} יח׳`)
   }
 
-  // Kitchen sees food + desserts (if dessertTo === 'kitchen')
-  const isKitchenItem = (cat: string) => cat === 'food' || (cat === 'dessert' && dessertTo === 'kitchen')
+  const isBarItem = (cat: string) => cat === 'drink' || (cat === 'dessert' && dessertTo === 'bar')
 
   const activeOrders = orders
     .filter(o => {
       if (o.status !== 'sent_to_kitchen') return false
-      if (o.kitchenDoneAt) return false  // kitchen already clicked Done
-      return o.items.some(oi => isKitchenItem(menuItems.find(m => m.id === oi.menuItemId)?.category ?? ''))
+      if (o.barDoneAt) return false  // bar already clicked Done
+      return o.items.some(oi => isBarItem(menuItems.find(m => m.id === oi.menuItemId)?.category ?? ''))
     })
     .sort((a, b) => new Date(a.sentToKitchenAt ?? a.createdAt).getTime() - new Date(b.sentToKitchenAt ?? b.createdAt).getTime())
 
-  // Done panel: orders where kitchen has explicitly clicked Done (not just any 'ready' order)
+  // Done panel: orders where bar has explicitly clicked Done (not just any 'ready' order)
   const doneOrders = orders
-    .filter(o => !!o.kitchenDoneAt)
-    .sort((a, b) => new Date(b.readyAt ?? b.kitchenDoneAt ?? '').getTime() - new Date(a.readyAt ?? a.kitchenDoneAt ?? '').getTime())
+    .filter(o => !!o.barDoneAt)
+    .sort((a, b) => new Date(b.readyAt ?? b.barDoneAt ?? '').getTime() - new Date(a.readyAt ?? a.barDoneAt ?? '').getTime())
 
-  const stockItems = menuItems.filter(m => isKitchenItem(m.category))
+  const stockItems = menuItems.filter(m => isBarItem(m.category))
 
   return (
     <div className="h-dvh flex flex-col bg-cream overflow-hidden">
-      <TopBar title="מטבח" titleEn="Kitchen" actions={
+      <TopBar title="בר" titleEn="Bar" actions={
         <div className="flex gap-2">
           {doneOrders.length > 0 && (
             <button onClick={() => { setShowDonePanel(s => !s); setShowStockPanel(false) }}
@@ -291,7 +286,7 @@ export default function KitchenPage() {
         <div className="bg-white border-b-2 border-navy/10 px-4 py-4 animate-fade-in overflow-y-auto max-h-72">
           <div className="max-w-4xl mx-auto">
             <div className="font-display font-bold text-navy text-sm mb-3">
-              מלאי מטבח / Kitchen Stock
+              מלאי בר / Bar Stock
               <span className="font-body font-normal text-navy/40 text-xs mr-2">הכנס כמות שנותרה</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -323,6 +318,11 @@ export default function KitchenPage() {
                   </div>
                 )
               })}
+              {stockItems.length === 0 && (
+                <div className="col-span-2 text-center py-4 text-navy/30 font-body text-sm">
+                  {dessertTo === 'kitchen' ? 'אין פריטי בר — קינוחים נמצאים במטבח' : 'אין פריטים'}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -336,7 +336,7 @@ export default function KitchenPage() {
             <div className="max-h-64 overflow-y-auto">
               {doneOrders.map(order => (
                 <DoneOrderRow key={order.id} order={order} onUndo={handleUndo}
-                  waitingForBar={order.status === 'sent_to_kitchen'} dessertTo={dessertTo} />
+                  waitingForKitchen={order.status === 'sent_to_kitchen'} dessertTo={dessertTo} />
               ))}
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function KitchenPage() {
       <div className="flex-1 overflow-y-auto p-4">
         {activeOrders.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-navy/25">
-            <div className="text-6xl mb-4">🍽</div>
+            <div className="text-6xl mb-4">🍸</div>
             <div className="font-display font-bold text-xl">אין הזמנות פעילות</div>
             <div className="font-body text-sm mt-1">No active orders</div>
           </div>
@@ -360,7 +360,7 @@ export default function KitchenPage() {
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeOrders.map(order => <KitchenCard key={order.id} order={order} dessertTo={dessertTo} />)}
+              {activeOrders.map(order => <BarCard key={order.id} order={order} dessertTo={dessertTo} />)}
             </div>
           </div>
         )}

@@ -4,9 +4,10 @@ import { useStore } from '../stores/useStore'
 import type { Role } from '../types'
 
 const ROLES: { role: Role; label: string; labelEn: string; icon: string; defaultRoute: string }[] = [
-  { role: 'admin', label: 'מנהל', labelEn: 'Admin', icon: '🧑‍💼', defaultRoute: '/analytics' },
-  { role: 'waitress', label: 'הזמנות', labelEn: 'Orders', icon: '🧾', defaultRoute: '/orders' },
-  { role: 'kitchen', label: 'מטבח', labelEn: 'Kitchen', icon: '👨‍🍳', defaultRoute: '/kitchen' },
+  { role: 'admin',    label: 'מנהל',    labelEn: 'Admin',    icon: '🧑‍💼', defaultRoute: '/analytics' },
+  { role: 'waitress', label: 'הזמנות',  labelEn: 'Orders',   icon: '🧾',  defaultRoute: '/orders'    },
+  { role: 'kitchen',  label: 'מטבח',   labelEn: 'Kitchen',  icon: '👨‍🍳', defaultRoute: '/kitchen'   },
+  { role: 'bar',      label: 'בר',      labelEn: 'Bar',      icon: '🍸',  defaultRoute: '/bar'       },
 ]
 
 const LOCKOUT_MS = 60_000
@@ -20,8 +21,8 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<(typeof ROLES)[0] | null>(null)
   const [pin, setPin] = useState('')
   const [shaking, setShaking] = useState(false)
-  const [attempts, setAttempts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0 })
-  const [lockouts, setLockouts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0 })
+  const [attempts, setAttempts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0, bar: 0 })
+  const [lockouts, setLockouts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0, bar: 0 })
   const [lockoutCountdown, setLockoutCountdown] = useState(0)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)

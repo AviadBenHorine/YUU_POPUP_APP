@@ -62,6 +62,7 @@ export default function HistoryPage() {
   const proofUrlRef = useRef<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [filterPayment, setFilterPayment] = useState<string>('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
   const [page, setPage] = useState(1)
@@ -75,6 +76,7 @@ export default function HistoryPage() {
     if (filterStatus !== 'all' && o.status !== filterStatus) return false
     if (filterType !== 'all' && o.orderType !== filterType) return false
     if (filterDateFrom && o.createdAt < new Date(filterDateFrom).toISOString()) return false
+    if (filterPayment !== 'all' && o.paymentMethod !== filterPayment) return false
     if (filterDateTo) {
       const endOfDay = new Date(filterDateTo)
       endOfDay.setDate(endOfDay.getDate() + 1)
@@ -86,7 +88,7 @@ export default function HistoryPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  useEffect(() => { setPage(1) }, [filterStatus, filterType, filterDateFrom, filterDateTo])
+  useEffect(() => { setPage(1) }, [filterStatus, filterType, filterPayment, filterDateFrom, filterDateTo])
 
   async function handleExpand(order: Order) {
     // Revoke previous object URL to prevent memory leak
@@ -157,8 +159,17 @@ export default function HistoryPage() {
                   className="border-2 border-navy/15 rounded-lg px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-gold"
                 />
               </div>
+              <div>
+                <label className="font-body text-xs text-navy/50 block mb-1">תשלום / Payment</label>
+                <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)}
+                  className="border-2 border-navy/15 rounded-lg px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-gold">
+                  <option value="all">הכל / All</option>
+                  <option value="bit">Bit</option>
+                  <option value="staff">על החשבון / Staff</option>
+                </select>
+              </div>
               <button
-                onClick={() => { setFilterStatus('all'); setFilterType('all'); setFilterDateFrom(''); setFilterDateTo('') }}
+                onClick={() => { setFilterStatus('all'); setFilterType('all'); setFilterPayment('all'); setFilterDateFrom(''); setFilterDateTo('') }}
                 className="px-4 py-2 border-2 border-navy/15 rounded-lg text-sm font-body text-navy/60 hover:border-navy/40 transition-colors"
               >
                 נקה / Clear
@@ -192,9 +203,15 @@ export default function HistoryPage() {
                       <React.Fragment key={order.id}>
                         <tr
                           onClick={() => handleExpand(order)}
-                          className="border-b border-navy/5 hover:bg-cream/60 cursor-pointer transition-colors"
+                          className={`border-b border-navy/5 hover:bg-cream/60 cursor-pointer transition-colors ${order.paymentMethod === 'staff' ? 'opacity-60' : ''}`}
                         >
-                          <td className="px-4 py-3 font-display font-bold text-navy text-sm">{order.id}</td>
+                          <td className="px-4 py-3">
+                            {order.customerName
+                              ? <><div className="font-body font-semibold text-navy text-sm">{order.customerName}</div>
+                                  <div className="font-body text-navy/30 text-xs">{order.id}</div></>
+                              : <div className="font-display font-bold text-navy text-sm">{order.id}</div>
+                            }
+                          </td>
                           <td className="px-4 py-3 font-body text-sm">
                             {order.orderType === 'sit_down' ? '🪑' : '🥡'}
                           </td>
@@ -206,7 +223,12 @@ export default function HistoryPage() {
                             }).join(', ')}
                             {order.items.length > 2 ? ` +${order.items.length - 2}` : ''}
                           </td>
-                          <td className="px-4 py-3 font-display font-bold text-navy text-sm">₪{order.totalPrice}</td>
+                          <td className="px-4 py-3">
+                            {order.paymentMethod === 'staff'
+                              ? <span className="text-xs px-2 py-0.5 rounded-full font-body bg-slate-100 text-slate-500">על החשבון</span>
+                              : <span className="font-display font-bold text-navy text-sm">₪{order.totalPrice}</span>
+                            }
+                          </td>
                           <td className="px-4 py-3">
                             <span className={`text-xs px-2 py-0.5 rounded-full font-body ${STATUS_LABELS[order.status]?.color}`}>
                               {STATUS_LABELS[order.status]?.he}

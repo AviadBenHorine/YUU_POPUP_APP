@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import WaitressPage from './pages/WaitressPage'
 import PaymentPage from './pages/PaymentPage'
 import KitchenPage from './pages/KitchenPage'
+import BarPage from './pages/BarPage'
 import HistoryPage from './pages/HistoryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
@@ -36,6 +37,12 @@ function App() {
         <Route path="/kitchen" element={
           <ProtectedRoute allowedRoles={['kitchen', 'admin']}>
             <KitchenPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bar" element={
+          <ProtectedRoute allowedRoles={['bar', 'admin']}>
+            <BarPage />
           </ProtectedRoute>
         } />
 

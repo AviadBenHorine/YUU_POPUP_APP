@@ -19,9 +19,22 @@ export default function AnalyticsPage() {
 
   const [confirmReset, setConfirmReset] = useState(false)
 
+  // Staff orders are excluded from all revenue and statistics
   const paidOrders = useMemo(() =>
-    orders.filter(o => !['open', 'awaiting_payment', 'cancelled'].includes(o.status)),
+    orders.filter(o =>
+      !['open', 'awaiting_payment', 'cancelled'].includes(o.status) &&
+      o.paymentMethod !== 'staff'
+    ),
     [orders]
+  )
+
+  const staffOrdersToday = useMemo(() =>
+    orders.filter(o =>
+      !['open', 'awaiting_payment', 'cancelled'].includes(o.status) &&
+      o.paymentMethod === 'staff' &&
+      o.createdAt.startsWith(today)
+    ),
+    [orders, today]
   )
 
   const todayOrders = useMemo(() =>
@@ -92,11 +105,21 @@ export default function AnalyticsPage() {
     showToast('הנתונים אופסו / Analytics reset')
   }
 
-  const KPI = ({ label, labelEn, value, sub }: { label: string; labelEn: string; value: string; sub?: string }) => (
+  const staffRevenueToday = staffOrdersToday.reduce((s, o) => s + o.totalPrice, 0)
+
+  const KPI = ({ label, labelEn, value, sub, staffLine }: {
+    label: string; labelEn: string; value: string; sub?: string; staffLine?: string
+  }) => (
     <div className="bg-white rounded-2xl border-2 border-navy/10 p-5 space-y-1">
       <div className="font-body text-xs text-navy/40 uppercase tracking-wider">{label}</div>
       <div className="font-display font-black text-navy text-3xl">{value}</div>
       {sub && <div className="font-body text-xs text-gold">{sub}</div>}
+      {staffLine && (
+        <div className="flex items-center gap-1.5 pt-1 border-t border-navy/8 mt-1">
+          <span className="text-xs font-body text-navy/30">🧾</span>
+          <span className="font-body text-xs text-navy/40">{staffLine}</span>
+        </div>
+      )}
       <div className="font-body text-xs text-navy/30">{labelEn}</div>
     </div>
   )
@@ -135,8 +158,10 @@ export default function AnalyticsPage() {
 
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <KPI label="הכנסות היום" labelEn="Today's Revenue" value={fmtCurrency(totalRevenue)} />
-            <KPI label="הזמנות היום" labelEn="Today's Orders" value={String(todayOrders.length)} />
+            <KPI label="הכנסות היום" labelEn="Today's Revenue" value={fmtCurrency(totalRevenue)}
+              staffLine={staffOrdersToday.length > 0 ? `על החשבון: ${fmtCurrency(staffRevenueToday)}` : undefined} />
+            <KPI label="הזמנות היום" labelEn="Today's Orders" value={String(todayOrders.length)}
+              staffLine={staffOrdersToday.length > 0 ? `על החשבון: ${staffOrdersToday.length}` : undefined} />
             <KPI label="ממוצע להזמנה" labelEn="Avg Order Value" value={fmtCurrency(avgOrderValue)} />
             <KPI label="הפריט הפופולרי" labelEn="Most Popular" value={mostPopular} />
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5 space-y-1">

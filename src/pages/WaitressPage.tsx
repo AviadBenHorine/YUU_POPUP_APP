@@ -13,23 +13,39 @@ import { useStore } from '../stores/useStore'
 import type { MenuItem, MenuCategory } from '../types'
 
 // ─── Draggable menu item ───
-function DraggableMenuItem({ item }: { item: MenuItem }) {
+function DraggableMenuItem({ item, stockRemaining, draftQty }: {
+  item: MenuItem
+  stockRemaining?: number
+  draftQty: number
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, data: { item } })
+  const atLimit = stockRemaining !== undefined && draftQty >= stockRemaining
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       className={`
-        bg-white rounded-xl border-2 border-navy/10 p-2 cursor-grab active:cursor-grabbing
-        hover:border-gold hover:shadow-md transition-all select-none touch-none flex flex-col
+        bg-white rounded-xl border-2 p-2 select-none touch-none flex flex-col transition-all
+        ${atLimit
+          ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+          : 'border-navy/10 cursor-grab active:cursor-grabbing hover:border-gold hover:shadow-md'
+        }
         ${isDragging ? 'opacity-30' : ''}
       `}
       style={{ touchAction: 'none' }}
     >
       <div className="text-2xl leading-none mb-1">{item.emoji}</div>
       <div className="font-body font-semibold text-navy text-xs leading-tight flex-1">{item.nameHe}</div>
-      <div className="font-display font-bold text-gold text-xs mt-1">₪{item.price}</div>
+      <div className="flex items-center justify-between mt-1">
+        <div className="font-display font-bold text-gold text-xs">₪{item.price}</div>
+        {stockRemaining !== undefined && (
+          <div className={`text-xs font-body font-semibold rounded-full px-1.5 py-0.5 leading-none
+            ${stockRemaining <= 3 ? 'bg-red-100 text-red-600' : 'bg-amber-50 text-amber-700'}`}>
+            {stockRemaining}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -58,6 +74,7 @@ const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string; icon: stri
 
 export default function WaitressPage() {
   const menuItems    = useStore(s => s.menuItems)
+  const settings     = useStore(s => s.settings)
   const draftItems   = useStore(s => s.draftItems)
   const draftType    = useStore(s => s.draftType)
   const setDraftItems = useStore(s => s.setDraftItems)
@@ -71,6 +88,7 @@ export default function WaitressPage() {
   const [notesModal, setNotesModal]     = useState<{ itemId: string; notes: string } | null>(null)
   const [cancelModal, setCancelModal]   = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
+  const [customerName, setCustomerName] = useState('')
 
   // Always default to sit_down — never leave type unset
   useEffect(() => {
@@ -100,6 +118,12 @@ export default function WaitressPage() {
     const item = active.data.current?.item as MenuItem | undefined
     if (over.id === 'order-zone' && item) {
       const existing = draftItems.find(oi => oi.menuItemId === item.id)
+      const currentQty = existing?.quantity ?? 0
+      const stockQty = settings.stockQuantities[item.id]
+      if (stockQty !== undefined && currentQty >= stockQty) {
+        showToast(`${item.nameHe}: רק ${stockQty} במלאי`, 'error')
+        return
+      }
       if (existing) {
         setDraftItems(draftItems.map(oi => oi.menuItemId === item.id ? { ...oi, quantity: oi.quantity + 1 } : oi))
       } else {
@@ -112,6 +136,14 @@ export default function WaitressPage() {
     const existing = draftItems.find(oi => oi.menuItemId === menuItemId)
     if (!existing) return
     const newQty = existing.quantity + delta
+    if (delta > 0) {
+      const stockQty = settings.stockQuantities[menuItemId]
+      if (stockQty !== undefined && newQty > stockQty) {
+        const mi = menuItems.find(m => m.id === menuItemId)
+        showToast(`${mi?.nameHe ?? ''}: רק ${stockQty} במלאי`, 'error')
+        return
+      }
+    }
     if (newQty <= 0) {
       setDraftItems(draftItems.filter(oi => oi.menuItemId !== menuItemId))
     } else {
@@ -129,7 +161,8 @@ export default function WaitressPage() {
 
   function handleProceedToPayment() {
     if (draftItems.length === 0) return
-    const order = createOrder(draftType ?? 'sit_down', draftItems)
+    const order = createOrder(draftType ?? 'sit_down', draftItems, customerName)
+    setCustomerName('')
     clearDraft()
     navigate(`/payment/${order.id}`)
   }
@@ -141,6 +174,7 @@ export default function WaitressPage() {
   }
 
   const isTakeAway = draftType === 'take_away'
+  const canProceed = draftItems.length > 0 && customerName.trim().length > 0
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -185,7 +219,14 @@ export default function WaitressPage() {
                   <div className="font-body text-xs text-center">אין פריטים זמינים<br />No items available</div>
                 </div>
               ) : (
-                visibleItems.map(item => <DraggableMenuItem key={item.id} item={item} />)
+                visibleItems.map(item => (
+                  <DraggableMenuItem
+                    key={item.id}
+                    item={item}
+                    stockRemaining={settings.stockQuantities[item.id]}
+                    draftQty={draftItems.find(oi => oi.menuItemId === item.id)?.quantity ?? 0}
+                  />
+                ))
               )}
             </div>
           </div>
@@ -193,20 +234,33 @@ export default function WaitressPage() {
           {/* ─── Right panel: Order zone ─── */}
           <div className="flex-1 flex flex-col min-h-0 bg-cream/40 border-l-2 border-navy/10">
 
+            {/* Customer name input */}
+            <div className="px-4 py-2.5 border-b-2 border-navy/10 shrink-0 bg-white/80">
+              <input
+                type="text"
+                dir="rtl"
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                placeholder="שם לקוח (חובה) / Customer name *"
+                className={`w-full bg-transparent font-body text-navy placeholder-navy/35 focus:outline-none text-sm ${
+                  customerName.trim() ? 'text-navy' : ''
+                }`}
+              />
+            </div>
+
             {/* Order zone header: take-away toggle + item count */}
-            <div className="px-4 py-2.5 border-b-2 border-navy/10 flex items-center justify-between shrink-0 bg-white/60">
+            <div className="px-4 py-2 border-b-2 border-navy/10 flex items-center justify-between shrink-0 bg-white/60">
               {/* Take-away toggle */}
               <button
                 onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
                 className={`
-                  flex items-center gap-2.5 px-3.5 py-2 rounded-xl border-2 font-body text-sm transition-all
+                  flex items-center gap-2.5 px-3 py-1.5 rounded-xl border-2 font-body text-sm transition-all
                   ${isTakeAway
                     ? 'border-gold bg-gold/10 text-navy font-semibold shadow-sm'
                     : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
                   }
                 `}
               >
-                {/* Checkbox */}
                 <span className={`
                   w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
                   ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}
@@ -266,7 +320,17 @@ export default function WaitressPage() {
                             onPointerDown={e => e.stopPropagation()}
                             onTouchStart={e => e.stopPropagation()}
                             onClick={() => adjustQty(oi.menuItemId, 1)}
-                            className="w-8 h-8 rounded-full bg-navy/10 hover:bg-navy/20 text-navy font-bold text-lg flex items-center justify-center transition-colors"
+                            disabled={(() => {
+                              const stock = settings.stockQuantities[oi.menuItemId]
+                              return stock !== undefined && oi.quantity >= stock
+                            })()}
+                            className={`w-8 h-8 rounded-full font-bold text-lg flex items-center justify-center transition-colors
+                              ${(() => {
+                                const stock = settings.stockQuantities[oi.menuItemId]
+                                return stock !== undefined && oi.quantity >= stock
+                                  ? 'bg-red-100 text-red-300 cursor-not-allowed'
+                                  : 'bg-navy/10 hover:bg-navy/20 text-navy'
+                              })()}`}
                           >+</button>
                         </div>
                       </div>
@@ -288,16 +352,19 @@ export default function WaitressPage() {
               <div className="px-4 py-3 flex flex-col gap-2">
                 <button
                   onClick={handleProceedToPayment}
-                  disabled={draftItems.length === 0}
+                  disabled={!canProceed}
                   className={`
                     w-full py-4 rounded-2xl font-display font-bold text-lg transition-all
-                    ${draftItems.length > 0
+                    ${canProceed
                       ? 'bg-gold text-navy hover:bg-gold/90 active:scale-95 shadow-md double-border-gold'
                       : 'bg-navy/10 text-navy/30 cursor-not-allowed'
                     }
                   `}
                 >
                   <div>המשך לגביית תשלום</div>
+                  {!customerName.trim() && draftItems.length > 0 && (
+                    <div className="text-xs font-body mt-0.5 text-navy/40">נא להזין שם לקוח / Enter customer name</div>
+                  )}
                 </button>
 
                 {draftItems.length > 0 && (

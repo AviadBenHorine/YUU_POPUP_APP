@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { path: '/orders', icon: '🧾', he: 'הזמנות', en: 'Orders' },
-  { path: '/kitchen', icon: '👨‍🍳', he: 'מטבח', en: 'Kitchen' },
-  { path: '/analytics', icon: '📊', he: 'נתונים', en: 'Analytics' },
-  { path: '/history', icon: '📋', he: 'היסטוריה', en: 'History' },
-  { path: '/settings', icon: '⚙️', he: 'הגדרות', en: 'Settings' },
+  { path: '/orders',    icon: '🧾',  he: 'הזמנות',   en: 'Orders'    },
+  { path: '/kitchen',   icon: '👨‍🍳', he: 'מטבח',    en: 'Kitchen'   },
+  { path: '/bar',       icon: '🍸',  he: 'בר',       en: 'Bar'       },
+  { path: '/analytics', icon: '📊',  he: 'נתונים',   en: 'Analytics' },
+  { path: '/history',   icon: '📋',  he: 'היסטוריה', en: 'History'   },
+  { path: '/settings',  icon: '⚙️',  he: 'הגדרות',   en: 'Settings'  },
 ]
 
 export default function AdminNav() {

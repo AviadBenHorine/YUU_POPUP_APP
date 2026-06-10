@@ -6,20 +6,21 @@ import type { Role, MenuItem, MenuCategory } from '../types'
 import { printer } from '../services/bluetoothPrinter'
 
 const ROLE_LABELS: Record<Role, { he: string; en: string; icon: string }> = {
-  admin: { he: 'מנהל', en: 'Admin', icon: '🧑‍💼' },
-  waitress: { he: 'הזמנות', en: 'Orders', icon: '🧾' },
-  kitchen: { he: 'מטבח', en: 'Kitchen', icon: '👨‍🍳' },
+  admin:    { he: 'מנהל',   en: 'Admin',    icon: '🧑‍💼' },
+  waitress: { he: 'הזמנות', en: 'Orders',   icon: '🧾'  },
+  kitchen:  { he: 'מטבח',  en: 'Kitchen',  icon: '👨‍🍳' },
+  bar:      { he: 'בר',    en: 'Bar',      icon: '🍸'  },
 }
 
 const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string }> = {
-  food: { he: 'אוכל', en: 'Food' },
-  drink: { he: 'שתייה', en: 'Drinks' },
+  food:    { he: 'אוכל',    en: 'Food'     },
+  drink:   { he: 'שתייה',  en: 'Drinks'   },
   dessert: { he: 'קינוחים', en: 'Desserts' },
 }
 
 function PinField({ role }: { role: Role }) {
   const settings = useStore(s => s.settings)
-  const setPin = useStore(s => s.setPin)
+  const setPin   = useStore(s => s.setPin)
   const showToast = useStore(s => s.showToast)
   const [value, setValue] = useState(settings.pins[role])
   const [saved, setSaved] = useState(false)
@@ -35,17 +36,15 @@ function PinField({ role }: { role: Role }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1">
-        <input
-          type="password"
-          inputMode="numeric"
-          maxLength={4}
-          value={value}
-          onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          className="w-full border-2 border-navy/20 rounded-xl px-4 py-3 font-display font-bold text-navy tracking-widest text-lg bg-cream focus:outline-none focus:border-gold"
-          placeholder="••••"
-        />
-      </div>
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength={4}
+        value={value}
+        onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        className="flex-1 border-2 border-navy/20 rounded-xl px-4 py-3 font-display font-bold text-navy tracking-widest text-lg bg-cream focus:outline-none focus:border-gold"
+        placeholder="••••"
+      />
       <button
         onClick={save}
         className={`px-5 py-3 rounded-xl font-body text-sm font-semibold transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-navy text-cream hover:bg-navy/80'}`}
@@ -60,8 +59,6 @@ const EMPTY_ITEM: Omit<MenuItem, 'id'> = {
   name: '', nameHe: '', category: 'food', price: 0, emoji: '', available: true,
 }
 
-// Defined outside SettingsPage so their identity is stable across renders —
-// avoids remounting (and focus loss) when parent state updates.
 function Section({ title, titleEn, children }: { title: string; titleEn: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border-2 border-navy/10 overflow-hidden">
@@ -118,21 +115,116 @@ function ItemForm({ item, onChange }: { item: Omit<MenuItem, 'id'>; onChange: (i
   )
 }
 
-export default function SettingsPage() {
-  const settings = useStore(s => s.settings)
+// QR slot sub-component
+type QRSlot = 1 | 2 | 3
+const QR_KEYS: Record<QRSlot, 'bitQR1' | 'bitQR2' | 'bitQR3'> = {
+  1: 'bitQR1', 2: 'bitQR2', 3: 'bitQR3',
+}
+
+function QRSlotCard({ slot }: { slot: QRSlot }) {
+  const settings       = useStore(s => s.settings)
   const updateSettings = useStore(s => s.updateSettings)
-  const menuItems = useStore(s => s.menuItems)
+  const showToast      = useStore(s => s.showToast)
+  const fileRef        = useRef<HTMLInputElement>(null)
+
+  const key      = QR_KEYS[slot]
+  const imgSrc   = settings[key] || (slot === 1 ? '/qr1.jpeg' : '')
+  const isActive = settings.activeQRSlot === slot
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      updateSettings({ [key]: ev.target?.result as string })
+      showToast(`QR ${slot} עודכן`)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  function handleRemove() {
+    if (slot === 1) {
+      // slot 1 always has the hard-coded fallback, can't be fully removed
+      updateSettings({ bitQR1: '/qr1.jpeg' })
+      showToast('QR 1 אופס לברירת המחדל')
+    } else {
+      updateSettings({ [key]: '' })
+      if (isActive) updateSettings({ activeQRSlot: 1 })
+      showToast(`QR ${slot} הוסר`)
+    }
+  }
+
+  return (
+    <div className={`rounded-2xl border-2 p-4 transition-all ${isActive ? 'border-gold shadow-md bg-gold/5' : 'border-navy/15 bg-white'}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold
+            ${isActive ? 'border-gold bg-gold text-navy' : 'border-navy/20 text-navy/40'}`}>
+            {slot}
+          </div>
+          <span className="font-body text-sm font-semibold text-navy">QR {slot}</span>
+          {isActive && <span className="text-xs font-body text-gold font-semibold">✓ פעיל / Active</span>}
+        </div>
+        <button
+          onClick={() => updateSettings({ activeQRSlot: slot })}
+          disabled={!imgSrc}
+          className={`text-xs px-3 py-1.5 rounded-lg font-body transition-colors
+            ${isActive
+              ? 'bg-gold text-navy font-semibold cursor-default'
+              : imgSrc
+                ? 'border-2 border-navy/20 text-navy/60 hover:border-gold hover:text-gold'
+                : 'border-2 border-navy/10 text-navy/20 cursor-not-allowed'
+            }`}
+        >
+          {isActive ? '✓ בשימוש' : 'הפעל'}
+        </button>
+      </div>
+
+      <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+
+      {imgSrc ? (
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-lg border border-navy/10">
+            <img src={imgSrc} alt={`Bit QR ${slot}`} className="w-20 h-20 object-contain" />
+          </div>
+          <div className="flex flex-col gap-2 flex-1">
+            <button onClick={() => fileRef.current?.click()}
+              className="py-2 rounded-lg bg-navy text-cream font-body text-xs hover:bg-navy/80 transition-colors">
+              החלף / Replace
+            </button>
+            <button onClick={handleRemove}
+              className={`py-2 rounded-lg border-2 font-body text-xs transition-colors
+                ${slot === 1 ? 'border-navy/10 text-navy/30' : 'border-red-200 text-red-400 hover:border-red-400'}`}>
+              {slot === 1 ? 'ברירת מחדל' : 'הסר / Remove'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => fileRef.current?.click()}
+          className="w-full h-24 rounded-xl border-2 border-dashed border-navy/20 hover:border-gold hover:bg-gold/5 transition-all flex flex-col items-center justify-center gap-1.5 text-navy/30">
+          <span className="text-2xl">📷</span>
+          <div className="font-body text-xs">העלה תמונת QR<br /><span className="text-navy/20">Upload QR image</span></div>
+        </button>
+      )}
+    </div>
+  )
+}
+
+export default function SettingsPage() {
+  const settings       = useStore(s => s.settings)
+  const updateSettings = useStore(s => s.updateSettings)
+  const menuItems    = useStore(s => s.menuItems)
   const setMenuItems = useStore(s => s.setMenuItems)
-  const resetOrders = useStore(s => s.resetOrders)
-  const showToast = useStore(s => s.showToast)
+  const resetOrders  = useStore(s => s.resetOrders)
+  const showToast    = useStore(s => s.showToast)
 
   const [printerStatus, setPrinterStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle')
-  const qrFileRef = useRef<HTMLInputElement>(null)
 
   // Menu editing state
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [addModal, setAddModal] = useState(false)
-  const [newItem, setNewItem] = useState<Omit<MenuItem, 'id'>>(EMPTY_ITEM)
+  const [newItem, setNewItem]   = useState<Omit<MenuItem, 'id'>>(EMPTY_ITEM)
 
   async function connectPrinter() {
     setPrinterStatus('connecting')
@@ -155,19 +247,6 @@ export default function SettingsPage() {
     } catch {
       showToast('הדפסה נכשלה / Print failed', 'error')
     }
-  }
-
-  function handleQRImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const dataUrl = ev.target?.result as string
-      updateSettings({ bitQRImage: dataUrl })
-      showToast('קוד QR של Bit עודכן / Bit QR code updated')
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   function saveEditItem() {
@@ -230,54 +309,59 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          {/* Bit QR Code */}
-          <Section title="קוד QR של Bit" titleEn="Bit QR Code">
+          {/* Bit QR Codes — 3 slots */}
+          <Section title="קודי QR של Bit" titleEn="Bit QR Codes">
             <div className="text-xs text-navy/50 font-body bg-navy/5 rounded-lg p-3">
-              העלו את תמונת קוד ה-QR של Bit שלכם — היא תוצג בדף התשלום.<br />
-              Upload your Bit QR code image — it will be shown on the payment screen.
+              ניתן להוסיף עד 3 קודי QR ולהחליף ביניהם בקלות.<br />
+              Add up to 3 QR codes and switch between them any time.
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <QRSlotCard slot={1} />
+              <QRSlotCard slot={2} />
+              <QRSlotCard slot={3} />
+            </div>
+          </Section>
+
+          {/* Department routing */}
+          <Section title="ניתוב מחלקות" titleEn="Department Routing">
+            <div>
+              <div className="font-body text-sm text-navy mb-1">קינוחים ישלחו אל / Desserts sent to:</div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { updateSettings({ dessertTo: 'kitchen' }); showToast('קינוחים → מטבח') }}
+                  className={`flex-1 py-3 rounded-xl border-2 font-body text-sm transition-all flex items-center justify-center gap-2
+                    ${(settings.dessertTo ?? 'kitchen') === 'kitchen' ? 'bg-navy text-cream border-navy shadow-md' : 'border-navy/20 text-navy hover:border-navy/50'}`}
+                >
+                  <span>👨‍🍳</span> מטבח / Kitchen
+                  {(settings.dessertTo ?? 'kitchen') === 'kitchen' && <span className="text-cream/60 text-xs">✓</span>}
+                </button>
+                <button
+                  onClick={() => { updateSettings({ dessertTo: 'bar' }); showToast('קינוחים → בר') }}
+                  className={`flex-1 py-3 rounded-xl border-2 font-body text-sm transition-all flex items-center justify-center gap-2
+                    ${settings.dessertTo === 'bar' ? 'bg-navy text-cream border-navy shadow-md' : 'border-navy/20 text-navy hover:border-navy/50'}`}
+                >
+                  <span>🍸</span> בר / Bar
+                  {settings.dessertTo === 'bar' && <span className="text-cream/60 text-xs">✓</span>}
+                </button>
+              </div>
             </div>
 
-            <input
-              ref={qrFileRef}
-              type="file"
-              accept="image/*"
-              onChange={handleQRImageUpload}
-              className="hidden"
-            />
-
-            {settings.bitQRImage ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="p-3 bg-white rounded-xl border-2 border-navy/10">
-                  <img
-                    src={settings.bitQRImage}
-                    alt="Bit QR code"
-                    className="w-44 h-44 object-contain"
-                  />
-                </div>
-                <div className="flex gap-3 w-full">
-                  <button
-                    onClick={() => qrFileRef.current?.click()}
-                    className="flex-1 py-3 rounded-xl bg-navy text-cream font-body text-sm hover:bg-navy/80 transition-colors"
-                  >
-                    החלף תמונה / Replace
-                  </button>
-                  <button
-                    onClick={() => { updateSettings({ bitQRImage: '' }); showToast('קוד QR הוסר / QR code removed') }}
-                    className="flex-1 py-3 rounded-xl border-2 border-red-200 text-red-400 hover:border-red-400 hover:text-red-600 font-body text-sm transition-colors"
-                  >
-                    הסר / Remove
-                  </button>
+            <div className="flex items-center justify-between pt-2 border-t border-navy/8">
+              <div>
+                <div className="font-body text-sm text-navy">צילום אישור תשלום / Payment proof photo</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  {(settings.requirePaymentPhoto ?? true)
+                    ? 'מופעל — מצלמים אישור מלקוח'
+                    : 'כבוי — אישור בלחיצה בלבד'}
                 </div>
               </div>
-            ) : (
               <button
-                onClick={() => qrFileRef.current?.click()}
-                className="w-full h-36 rounded-xl border-2 border-dashed border-navy/30 hover:border-gold hover:bg-gold/5 transition-all flex flex-col items-center justify-center gap-2 text-navy/40"
+                onClick={() => updateSettings({ requirePaymentPhoto: !(settings.requirePaymentPhoto ?? true) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.requirePaymentPhoto ?? true) ? 'bg-green-500' : 'bg-navy/20'}`}
               >
-                <span className="text-4xl">📷</span>
-                <div className="font-body text-sm">לחץ להעלאת תמונת QR<br /><span className="text-xs">Click to upload QR image</span></div>
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.requirePaymentPhoto ?? true) ? 'right-1' : 'left-1'}`} />
               </button>
-            )}
+            </div>
           </Section>
 
           {/* PINs */}

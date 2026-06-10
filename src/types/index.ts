@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'waitress' | 'kitchen'
+export type Role = 'admin' | 'waitress' | 'kitchen' | 'bar'
 
 export type OrderStatus =
   | 'open'
@@ -38,11 +38,21 @@ export interface Order {
   paidAt?: string
   sentToKitchenAt?: string
   readyAt?: string
-  paymentMethod: 'bit'
+  paymentMethod: 'bit' | 'staff'
   paymentProofImageKey?: string
+  customerName?: string
+  checkedItems?: Record<string, boolean>  // menuItemId → ticked by kitchen/bar
+  kitchenDoneAt?: string   // set when kitchen clicks Done
+  barDoneAt?: string       // set when bar clicks Done
 }
 
 export interface AppSettings {
-  bitQRImage: string   // base64 data URL of the Bit QR code image
+  bitQR1: string            // hard-coded default or uploaded base64
+  bitQR2: string            // optional second QR
+  bitQR3: string            // optional third QR
+  activeQRSlot: 1 | 2 | 3  // which QR is shown in payment
+  stockQuantities: Record<string, number>  // menuItemId → remaining units
   pins: Record<Role, string>
+  dessertTo: 'kitchen' | 'bar'  // which department handles desserts
+  requirePaymentPhoto: boolean  // whether to require a payment proof photo
 }
