@@ -64,7 +64,9 @@ export function subscribeMenu(onUpdate: (items: MenuItem[]) => void): () => void
 
 export function pushOrder(order: Order): void {
   if (!_db) return
-  setDoc(doc(_db, 'orders', order.id), order).catch(console.error)
+  // Firestore rejects undefined values — strip them via JSON round-trip
+  const clean = JSON.parse(JSON.stringify(order)) as Order
+  setDoc(doc(_db, 'orders', order.id), clean).catch(console.error)
 }
 
 export function subscribeOrders(onUpdate: (orders: Order[]) => void): () => void {

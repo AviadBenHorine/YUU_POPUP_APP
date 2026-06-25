@@ -35,27 +35,15 @@ function gb01Packet(cmd: number, data: Uint8Array = new Uint8Array(0)): Uint8Arr
   return pkt
 }
 
-// ── Text → bitmap rows ───────────────────────────────────────
-// Returns one Uint8Array (48 bytes) per pixel row.
-// Uses LSB-first bit packing: bit 0 of byte[0] = leftmost pixel.
-function renderTextToBitmap(lines: string[], fontSize: number): Uint8Array[] {
-  const lineH  = Math.ceil(fontSize * 1.5)
-  const canvas = document.createElement('canvas')
-  canvas.width  = RENDER_WIDTH  // narrower than PRINT_WIDTH — right 16px stays blank (no edge clipping)
-  canvas.height = lines.length * lineH + 20
+// ── Canvas → bitmap rows ─────────────────────────────────────
+// LSB-first bit packing: bit 0 of byte[0] = leftmost pixel.
+function rasterize(canvas: HTMLCanvasElement): Uint8Array[] {
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = 'white'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = 'black'
-  ctx.font = `bold ${fontSize}px monospace`
-  ctx.textBaseline = 'top'
-  lines.forEach((line, i) => ctx.fillText(line, 4, i * lineH + 10))
-
-  const img  = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const rows: Uint8Array[] = []
   for (let row = 0; row < canvas.height; row++) {
-    const bytes = new Uint8Array(PRINT_WIDTH / 8)  // always 48 bytes for protocol
-    for (let col = 0; col < canvas.width; col++) {  // only render up to RENDER_WIDTH; rest stays 0x00
+    const bytes = new Uint8Array(PRINT_WIDTH / 8)
+    for (let col = 0; col < canvas.width; col++) {
       const idx = (row * canvas.width + col) * 4
       if ((img.data[idx] + img.data[idx + 1] + img.data[idx + 2]) / 3 < 128) {
         bytes[Math.floor(col / 8)] |= (1 << (col % 8))
@@ -64,6 +52,73 @@ function renderTextToBitmap(lines: string[], fontSize: number): Uint8Array[] {
     rows.push(bytes)
   }
   return rows
+}
+
+// ── LTR English rendering ────────────────────────────────────
+function renderLTR(lines: string[], fontSize: number): Uint8Array[] {
+  const lineH  = Math.ceil(fontSize * 1.5)
+  const canvas = document.createElement('canvas')
+  canvas.width  = RENDER_WIDTH
+  canvas.height = lines.length * lineH + 20
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = 'black'
+  ctx.font = `bold ${fontSize}px monospace`
+  ctx.textBaseline = 'top'
+  lines.forEach((line, i) => ctx.fillText(line, 4, i * lineH + 10))
+  return rasterize(canvas)
+}
+
+// ── RTL Hebrew rendering ─────────────────────────────────────
+// Each row is either a plain string (right-aligned) or [leftText, rightText]
+// where leftText (price) is drawn left-aligned and rightText (item) is right-aligned RTL.
+type HeBonRow = string | [string, string]
+
+function renderRTL(rows: HeBonRow[], fontSize: number): Uint8Array[] {
+  const lineH = Math.ceil(fontSize * 1.6)
+  const canvas = document.createElement('canvas')
+  canvas.width  = RENDER_WIDTH
+  canvas.height = rows.length * lineH + 24
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = 'black'
+  ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`
+  ctx.textBaseline = 'top'
+
+  rows.forEach((row, i) => {
+    const y = i * lineH + 12
+    if (Array.isArray(row)) {
+      const [left, right] = row
+      // Price on left (LTR)
+      ctx.direction = 'ltr'; ctx.textAlign = 'left'
+      ctx.fillText(left, 4, y)
+      // Item name on right (RTL — Hebrew flows naturally right-to-left)
+      ctx.direction = 'rtl'; ctx.textAlign = 'right'
+      ctx.fillText(right, RENDER_WIDTH - 4, y)
+    } else {
+      ctx.direction = 'rtl'; ctx.textAlign = 'right'
+      ctx.fillText(row, RENDER_WIDTH - 4, y)
+    }
+  })
+  return rasterize(canvas)
+}
+
+// ── Text wrapping for long notes ─────────────────────────────
+function wrapNotes(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text]
+  const lines: string[] = []
+  let remaining = text
+  while (remaining.length > maxChars) {
+    let breakAt = remaining.lastIndexOf(',', maxChars)
+    if (breakAt < 1) breakAt = remaining.lastIndexOf(' ', maxChars)
+    if (breakAt < 1) breakAt = maxChars
+    lines.push(remaining.slice(0, breakAt + 1).trim())
+    remaining = remaining.slice(breakAt + 1).trim()
+  }
+  if (remaining) lines.push(remaining)
+  return lines
 }
 
 export class BluetoothPrinter {
@@ -102,17 +157,13 @@ export class BluetoothPrinter {
   async connect(): Promise<void> {
     if (!navigator.bluetooth) throw new Error('Web Bluetooth not supported')
 
-    // Try filtering by known service first so the picker is pre-filtered.
-    // Fall back to acceptAllDevices if the filter yields no results.
+    // Show all nearby Bluetooth devices — the user picks their printer by name.
+    // A service-UUID filter is avoided because many printers don't advertise the
+    // service UUID until after pairing, causing an empty (confusing) chooser.
     this.device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
+      acceptAllDevices: true,
       optionalServices: [SERVICE_UUID],
-    }).catch(() =>
-      navigator.bluetooth!.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [SERVICE_UUID],
-      })
-    )
+    })
 
     const server = await this.device.gatt!.connect()
     const char   = await this._findChar(server)
@@ -134,7 +185,6 @@ export class BluetoothPrinter {
     try {
       const service = await server.getPrimaryService(SERVICE_UUID)
       const chars   = await service.getCharacteristics()
-      // Prefer ae01 (the dedicated write-no-response print data char)
       return chars.find(c => c.uuid === CHAR_WRITE_UUID)
           ?? chars.find(c => c.properties.writeWithoutResponse)
           ?? chars.find(c => c.properties.write)
@@ -170,7 +220,6 @@ export class BluetoothPrinter {
     await new Promise(r => setTimeout(r, 100))
 
     // Skip blank rows and replace runs of them with a single fast feed command.
-    // This dramatically reduces BLE writes — most canvas rows are blank inter-line space.
     let blankCount = 0
     for (const row of rows) {
       if (row.every(b => b === 0)) {
@@ -192,9 +241,8 @@ export class BluetoothPrinter {
   }
 
   // Enqueue a kitchen ticket — the queue ensures only one job prints at a time.
-  // Callers can fire-and-forget; errors are logged but don't stall the queue.
-  async enqueuePrint(order: Order, menuItems: MenuItem[]): Promise<void> {
-    this.printQueue.push(() => this.printKitchenTicket(order, menuItems))
+  async enqueuePrint(order: Order, menuItems: MenuItem[], printInHebrew = false): Promise<void> {
+    this.printQueue.push(() => this.printKitchenTicket(order, menuItems, printInHebrew))
     this._drainQueue()
   }
 
@@ -212,7 +260,7 @@ export class BluetoothPrinter {
   }
 
   async testPrint(): Promise<void> {
-    await this.printBitmap(renderTextToBitmap([
+    await this.printBitmap(renderLTR([
       '==============================',
       '       YUU -- TEST PRINT',
       '       Printer connected!',
@@ -220,35 +268,99 @@ export class BluetoothPrinter {
     ], 20))
   }
 
-  async printKitchenTicket(order: Order, menuItems: MenuItem[]): Promise<void> {
-    const W   = 30
-    const pad = (l: string, r: string) => l + ' '.repeat(Math.max(1, W - l.length - r.length)) + r
+  async printKitchenTicket(order: Order, menuItems: MenuItem[], printInHebrew = false): Promise<void> {
+    const SEP  = '=============================='
+    const SEP2 = '------------------------------'
 
     const date    = new Date(order.paidAt || order.createdAt)
     const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
-    const typeEn  = order.orderType === 'sit_down' ? 'SIT DOWN' : 'TAKE AWAY'
+    const isStaff = order.paymentMethod === 'staff'
 
-    const lines: string[] = [
-      '==============================',
-      '         YUU POP-UP',
-      `  Order: ${order.id}`,
-      `  ${typeEn}`,
-      `  * PAID * ${timeStr}`,
-      '==============================',
-    ]
+    // Top padding ~1.5 cm before content starts
+    await this.writePkt(gb01Packet(CMD_SET_ENERGY, new Uint8Array([0x35])))
+    await new Promise(r => setTimeout(r, 100))
+    await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([120])))
+    await new Promise(r => setTimeout(r, 30))
 
-    for (const oi of order.items) {
-      const mi = menuItems.find(m => m.id === oi.menuItemId)
-      if (!mi) continue
-      lines.push(pad(`  ${oi.quantity}x  ${mi.name}`, `${mi.price * oi.quantity}`))
-      if (oi.notes) lines.push(`       (${oi.notes})`)
+    if (printInHebrew) {
+      const typeHe     = order.orderType === 'sit_down' ? 'ישיבה' : 'לקחת'
+      const paymentStr = isStaff ? '★ על החשבון ★' : `★ שולם ★  ${timeStr}`
+
+      const rows: HeBonRow[] = [
+        SEP,
+        'YUU POP-UP',
+        SEP2,
+        `${order.id}   ${typeHe}`,
+        paymentStr,
+        SEP,
+      ]
+
+      if (order.customerName) {
+        rows.push(`★★  ${order.customerName}  ★★`)
+        rows.push(SEP)
+      }
+
+      for (const oi of order.items) {
+        const mi = menuItems.find(m => m.id === oi.menuItemId)
+        if (!mi) continue
+        rows.push([`₪${mi.price * oi.quantity}`, `${oi.quantity}×  ${mi.nameHe}`])
+        if (oi.notes) {
+          // Wrap long notes, indent each continuation line
+          wrapNotes(oi.notes, 22).forEach((l, idx) =>
+            rows.push(idx === 0 ? `  (${l}` : `   ${l}`)
+          )
+          // Close the parenthesis on the last line
+          const lastIdx = rows.length - 1
+          if (typeof rows[lastIdx] === 'string') {
+            rows[lastIdx] = (rows[lastIdx] as string) + ')'
+          }
+        }
+      }
+
+      rows.push(SEP2)
+      rows.push([`₪${order.totalPrice}`, 'סה"כ'])
+      rows.push(SEP)
+
+      await this.printBitmap(renderRTL(rows, 20))
+    } else {
+      const W          = 30
+      const typeEn     = order.orderType === 'sit_down' ? 'SIT DOWN' : 'TAKE AWAY'
+      const paymentStr = isStaff ? '★ ON THE HOUSE ★' : `★ PAID ★  ${timeStr}`
+      const pad = (l: string, r: string) => l + ' '.repeat(Math.max(1, W - l.length - r.length)) + r
+
+      const lines: string[] = [
+        SEP,
+        '         YUU POP-UP',
+        SEP2,
+        `  Order: ${order.id}`,
+        `  ${typeEn}`,
+        `  ${paymentStr}`,
+        SEP,
+      ]
+
+      if (order.customerName) {
+        lines.push(`** ${order.customerName.toUpperCase()} **`)
+        lines.push(SEP)
+      }
+
+      for (const oi of order.items) {
+        const mi = menuItems.find(m => m.id === oi.menuItemId)
+        if (!mi) continue
+        lines.push(pad(`  ${oi.quantity}x  ${mi.name}`, `${mi.price * oi.quantity}`))
+        if (oi.notes) {
+          wrapNotes(oi.notes, W - 8).forEach((l, idx) =>
+            lines.push(idx === 0 ? `       (${l}` : `        ${l}`)
+          )
+          lines[lines.length - 1] += ')'
+        }
+      }
+
+      lines.push(SEP2)
+      lines.push(pad('    TOTAL:', `${order.totalPrice}`))
+      lines.push(SEP)
+
+      await this.printBitmap(renderLTR(lines, 20))
     }
-
-    lines.push('------------------------------')
-    lines.push(pad('    TOTAL:', `${order.totalPrice}`))
-    lines.push('==============================')
-
-    await this.printBitmap(renderTextToBitmap(lines, 20))
   }
 }
 

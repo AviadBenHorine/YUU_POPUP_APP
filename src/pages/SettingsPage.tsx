@@ -436,6 +436,23 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            <div className="flex items-center justify-between pt-2 border-t border-navy/8">
+              <div>
+                <div className="font-body text-sm text-navy">הדפסה בעברית / Print in Hebrew</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  {(settings.printInHebrew ?? false)
+                    ? 'מופעל — בון יודפס בעברית (RTL)'
+                    : 'כבוי — בון יודפס באנגלית'}
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettings({ printInHebrew: !(settings.printInHebrew ?? false) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.printInHebrew ?? false) ? 'bg-green-500' : 'bg-navy/20'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.printInHebrew ?? false) ? 'right-1' : 'left-1'}`} />
+              </button>
+            </div>
+
             <div className="text-xs text-navy/40 font-body bg-amber-50 border border-amber-200 rounded-lg p-3">
               דורש Chrome/Edge. לחץ "חבר מדפסת" כדי לסרוק מכשירים קרובים.<br />
               Requires Chrome/Edge. Click "Connect Printer" to scan for nearby devices.

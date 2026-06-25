@@ -68,7 +68,7 @@ export default function PaymentPage() {
     decrementStockForItems(order!.items)
     try {
       if (printer.isConnected && (settings.printerEnabled ?? false)) {
-        printer.enqueuePrint({ ...order!, status: 'sent_to_kitchen', paidAt: now }, menuItems)
+        printer.enqueuePrint({ ...order!, status: 'sent_to_kitchen', paidAt: now }, menuItems, settings.printInHebrew ?? false)
       }
     } catch {}
     setStep('confirmation')

@@ -126,7 +126,7 @@ function PrinterConnectScreen({ onReady }: { onReady: () => void }) {
         {(status === 'idle' || status === 'failed') && (
           <div className="w-full max-w-xs flex flex-col gap-3">
             {error && (
-              <p className="font-body text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p dir="ltr" className="font-body text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
                 {error}
               </p>
             )}
