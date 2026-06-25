@@ -1,7 +1,7 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
-  doc, setDoc, onSnapshot,
+  doc, getDoc, setDoc, onSnapshot,
   collection, getDocs, writeBatch,
   type Firestore,
 } from 'firebase/firestore'
@@ -83,4 +83,24 @@ export async function clearOrders(): Promise<void> {
   const batch = writeBatch(_db)
   snap.docs.forEach(d => batch.delete(d.ref))
   await batch.commit()
+}
+
+// ── Initial fetch (call on startup before showing the app) ────────────────────
+
+export async function fetchInitialData(): Promise<{
+  settings: AppSettings | null
+  menu:     MenuItem[]   | null
+  orders:   Order[]
+}> {
+  if (!_db) return { settings: null, menu: null, orders: [] }
+  const [settingsSnap, menuSnap, ordersSnap] = await Promise.all([
+    getDoc(doc(_db, 'app', 'settings')),
+    getDoc(doc(_db, 'app', 'menu')),
+    getDocs(collection(_db, 'orders')),
+  ])
+  return {
+    settings: settingsSnap.exists() ? (settingsSnap.data() as AppSettings) : null,
+    menu:     menuSnap.exists()     ? ((menuSnap.data().items ?? []) as MenuItem[]) : null,
+    orders:   ordersSnap.docs.map(d => d.data() as Order),
+  }
 }

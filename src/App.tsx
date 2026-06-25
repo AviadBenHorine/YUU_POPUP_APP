@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Toast from './components/Toast'
@@ -12,7 +12,13 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminNav from './components/AdminNav'
 import { useStore } from './stores/useStore'
-import { subscribeSettings, subscribeOrders, subscribeMenu } from './services/firebase'
+import {
+  FIREBASE_ENABLED,
+  fetchInitialData,
+  subscribeSettings,
+  subscribeOrders,
+  subscribeMenu,
+} from './services/firebase'
 
 function App() {
   const currentRole           = useStore(s => s.currentRole)
@@ -20,14 +26,36 @@ function App() {
   const setOrdersFromRemote   = useStore(s => s._setOrdersFromRemote)
   const setMenuFromRemote     = useStore(s => s._setMenuFromRemote)
 
-  // Real-time sync across all devices — settings, orders, and menu stay
-  // identical on every device. No-op when Firebase env vars are not set.
+  // When Firebase is enabled: fetch all data first, then subscribe for updates.
+  // This guarantees every device starts from the same Firestore state instead
+  // of their own stale localStorage.
+  const [appReady, setAppReady] = useState(!FIREBASE_ENABLED)
+
   useEffect(() => {
+    if (!FIREBASE_ENABLED) return
+
+    fetchInitialData()
+      .then(({ settings, menu, orders }) => {
+        if (settings) setSettingsFromRemote(settings)
+        if (menu)     setMenuFromRemote(menu)
+        setOrdersFromRemote(orders)
+      })
+      .catch(() => {})
+      .finally(() => setAppReady(true))
+
     const unsub1 = subscribeSettings(setSettingsFromRemote)
     const unsub2 = subscribeOrders(setOrdersFromRemote)
     const unsub3 = subscribeMenu(setMenuFromRemote)
     return () => { unsub1(); unsub2(); unsub3() }
   }, [])
+
+  if (!appReady) {
+    return (
+      <div className="h-dvh bg-cream flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <>
