@@ -212,6 +212,106 @@ function QRSlotCard({ slot }: { slot: QRSlot }) {
   )
 }
 
+function QuickTagsSection() {
+  const settings       = useStore(s => s.settings)
+  const updateSettings = useStore(s => s.updateSettings)
+  const showToast      = useStore(s => s.showToast)
+  const tags = settings.quickTags ?? []
+
+  const [newTag, setNewTag]     = useState('')
+  const [editIdx, setEditIdx]   = useState<number | null>(null)
+  const [editVal, setEditVal]   = useState('')
+
+  function addTag() {
+    const trimmed = newTag.trim()
+    if (!trimmed || tags.includes(trimmed)) return
+    updateSettings({ quickTags: [...tags, trimmed] })
+    setNewTag('')
+  }
+
+  function removeTag(i: number) {
+    updateSettings({ quickTags: tags.filter((_, idx) => idx !== i) })
+  }
+
+  function startEdit(i: number) {
+    setEditIdx(i)
+    setEditVal(tags[i])
+  }
+
+  function saveEdit() {
+    if (editIdx === null) return
+    const trimmed = editVal.trim()
+    if (!trimmed) { setEditIdx(null); return }
+    const updated = tags.map((t, i) => i === editIdx ? trimmed : t)
+    updateSettings({ quickTags: updated })
+    setEditIdx(null)
+    showToast('תגית עודכנה / Tag updated')
+  }
+
+  return (
+    <Section title="תגיות מהירות" titleEn="Quick Tags">
+      <p className="font-body text-xs text-navy/50 -mt-2">
+        תגיות אלו מופיעות בחלון ההערות בעת לקיחת הזמנה / Shown as quick-select chips in the item notes modal
+      </p>
+
+      {/* Existing tags */}
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, i) => (
+          <div key={i} className="flex items-center gap-1 bg-cream border-2 border-navy/15 rounded-full pr-1 pl-3 py-1">
+            {editIdx === i ? (
+              <>
+                <input
+                  autoFocus
+                  value={editVal}
+                  onChange={e => setEditVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditIdx(null) }}
+                  className="w-24 bg-transparent font-body text-xs text-navy focus:outline-none"
+                  dir="rtl"
+                />
+                <button onClick={saveEdit}
+                  className="w-6 h-6 rounded-full bg-navy text-cream text-xs flex items-center justify-center hover:bg-navy/80">
+                  ✓
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="font-body text-xs text-navy">{tag}</span>
+                <button onClick={() => startEdit(i)}
+                  className="w-6 h-6 rounded-full text-navy/40 hover:text-navy text-xs flex items-center justify-center transition-colors">
+                  ✏️
+                </button>
+                <button onClick={() => removeTag(i)}
+                  className="w-6 h-6 rounded-full text-navy/30 hover:text-red-500 text-xs flex items-center justify-center transition-colors font-bold">
+                  ×
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Add new tag */}
+      <div className="flex gap-2 mt-1">
+        <input
+          dir="rtl"
+          value={newTag}
+          onChange={e => setNewTag(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') addTag() }}
+          placeholder="תגית חדשה... / New tag..."
+          className="flex-1 border-2 border-navy/20 rounded-xl px-3 py-2 font-body text-sm text-navy bg-cream focus:outline-none focus:border-gold"
+        />
+        <button
+          onClick={addTag}
+          disabled={!newTag.trim() || tags.includes(newTag.trim())}
+          className="px-4 py-2 rounded-xl bg-navy text-cream font-body text-sm disabled:opacity-30 hover:bg-navy/80 transition-colors"
+        >
+          הוסף / Add
+        </button>
+      </div>
+    </Section>
+  )
+}
+
 export default function SettingsPage() {
   const settings       = useStore(s => s.settings)
   const updateSettings = useStore(s => s.updateSettings)
@@ -466,6 +566,9 @@ export default function SettingsPage() {
               })}
             </div>
           </Section>
+
+          {/* Quick tags */}
+          <QuickTagsSection />
 
           {/* Data management */}
           <Section title="ניהול נתונים" titleEn="Data Management">

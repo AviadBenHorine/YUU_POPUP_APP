@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dessertTo: 'kitchen',
   requirePaymentPhoto: true,
   printerEnabled: false,
+  quickTags: ['ללא חלב', 'לא חריף', 'ללא כוסברה', 'ללא גלוטן', 'ללא בצל', 'ללא שום', 'ללא אגוזים', 'טבעוני'],
 }
 
 function loadOrders(): Order[] {

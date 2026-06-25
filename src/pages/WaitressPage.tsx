@@ -73,16 +73,6 @@ const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string; icon: stri
   dessert: { he: 'קינוחים', en: 'Desserts', icon: '🍮' },
 }
 
-const QUICK_TAGS = [
-  { he: 'ללא חלב',    en: 'No dairy'    },
-  { he: 'לא חריף',    en: 'Not spicy'   },
-  { he: 'ללא כוסברה', en: 'No cilantro' },
-  { he: 'ללא גלוטן',  en: 'No gluten'   },
-  { he: 'ללא בצל',    en: 'No onion'    },
-  { he: 'ללא שום',    en: 'No garlic'   },
-  { he: 'ללא אגוזים', en: 'No nuts'     },
-  { he: 'טבעוני',     en: 'Vegan'       },
-]
 
 // ─── Printer connect screen (shown when printerEnabled but not yet connected) ───
 type ConnectStatus = 'auto' | 'idle' | 'connecting' | 'failed'
@@ -495,23 +485,23 @@ export default function WaitressPage() {
         {notesModal && (
           <div>
             <div className="flex flex-wrap gap-2 mb-3">
-              {QUICK_TAGS.map(tag => {
-                const active = notesModal.notes.includes(tag.he)
+              {(settings.quickTags ?? []).map(tag => {
+                const active = notesModal.notes.includes(tag)
                 return (
                   <button
-                    key={tag.he}
+                    key={tag}
                     onClick={() => {
                       const current = notesModal.notes
                       if (active) {
                         const removed = current
-                          .replace(new RegExp(',?\\s*' + tag.he, 'g'), '')
+                          .replace(new RegExp(',?\\s*' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '')
                           .replace(/^,\s*/, '')
                           .trim()
                         setNotesModal({ ...notesModal, notes: removed })
                       } else {
                         const appended = current.trim()
-                          ? current.trim() + ', ' + tag.he
-                          : tag.he
+                          ? current.trim() + ', ' + tag
+                          : tag
                         setNotesModal({ ...notesModal, notes: appended })
                       }
                     }}
@@ -521,7 +511,7 @@ export default function WaitressPage() {
                         : 'border-navy/20 text-navy/60 hover:border-navy/50 hover:text-navy'
                       }`}
                   >
-                    {tag.he}
+                    {tag}
                   </button>
                 )
               })}
