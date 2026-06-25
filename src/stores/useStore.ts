@@ -96,6 +96,8 @@ interface AppState {
   updateStockQuantity:    (menuItemId: string, qty: number | null) => void
   decrementStockForItems: (items: OrderItem[]) => void
 
+  syncToCloud: () => void
+
   toast: { message: string; type: 'success' | 'error' } | null
   showToast:  (message: string, type?: 'success' | 'error') => void
   clearToast: () => void
@@ -232,6 +234,14 @@ export const useStore = create<AppState>((set, get) => {
         pushSettings(ns)
         pushMenu(newMenu)
       }
+    },
+
+    // ── Cloud sync ───────────────────────────────────────────────────────────
+    syncToCloud() {
+      const { settings, menuItems, orders } = get()
+      pushSettings(settings)
+      pushMenu(menuItems)
+      orders.forEach(o => pushOrder(o))
     },
 
     // ── Toast ─────────────────────────────────────────────────────────────────

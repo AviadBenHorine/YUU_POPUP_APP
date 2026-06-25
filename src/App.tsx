@@ -15,6 +15,9 @@ import { useStore } from './stores/useStore'
 import {
   FIREBASE_ENABLED,
   fetchInitialData,
+  pushSettings,
+  pushMenu,
+  pushOrder,
   subscribeSettings,
   subscribeOrders,
   subscribeMenu,
@@ -26,26 +29,48 @@ function App() {
   const setOrdersFromRemote   = useStore(s => s._setOrdersFromRemote)
   const setMenuFromRemote     = useStore(s => s._setMenuFromRemote)
 
-  // When Firebase is enabled: fetch all data first, then subscribe for updates.
-  // This guarantees every device starts from the same Firestore state instead
-  // of their own stale localStorage.
   const [appReady, setAppReady] = useState(!FIREBASE_ENABLED)
 
   useEffect(() => {
     if (!FIREBASE_ENABLED) return
 
-    fetchInitialData()
-      .then(({ settings, menu, orders }) => {
-        if (settings) setSettingsFromRemote(settings)
-        if (menu)     setMenuFromRemote(menu)
-        setOrdersFromRemote(orders)
-      })
-      .catch(() => {})
-      .finally(() => setAppReady(true))
+    // Snapshot local data RIGHT NOW before any Firestore subscription can overwrite it.
+    // subscribeOrders fires with [] even on an empty collection, which would wipe
+    // localStorage orders before we get a chance to seed Firestore with them.
+    const { settings: localSettings, menuItems: localMenu, orders: localOrders } =
+      useStore.getState()
 
     const unsub1 = subscribeSettings(setSettingsFromRemote)
     const unsub2 = subscribeOrders(setOrdersFromRemote)
     const unsub3 = subscribeMenu(setMenuFromRemote)
+
+    fetchInitialData()
+      .then(({ settings, menu, orders }) => {
+        if (settings) {
+          setSettingsFromRemote(settings)
+        } else {
+          // Nothing in Firestore yet — seed from this device's local data
+          pushSettings(localSettings)
+        }
+
+        if (menu) {
+          setMenuFromRemote(menu)
+        } else {
+          pushMenu(localMenu)
+        }
+
+        if (orders.length > 0) {
+          setOrdersFromRemote(orders)
+        } else if (localOrders.length > 0) {
+          // Firestore has no orders — restore what subscribeOrders may have wiped
+          // and push local orders so all devices converge
+          setOrdersFromRemote(localOrders)
+          localOrders.forEach(o => pushOrder(o))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAppReady(true))
+
     return () => { unsub1(); unsub2(); unsub3() }
   }, [])
 

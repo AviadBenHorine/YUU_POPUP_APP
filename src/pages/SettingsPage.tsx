@@ -4,6 +4,7 @@ import Modal from '../components/Modal'
 import { useStore } from '../stores/useStore'
 import type { Role, MenuItem, MenuCategory } from '../types'
 import { printer } from '../services/bluetoothPrinter'
+import { FIREBASE_ENABLED } from '../services/firebase'
 
 const ROLE_LABELS: Record<Role, { he: string; en: string; icon: string }> = {
   admin:    { he: 'מנהל',   en: 'Admin',    icon: '🧑‍💼' },
@@ -217,6 +218,7 @@ export default function SettingsPage() {
   const menuItems    = useStore(s => s.menuItems)
   const setMenuItems = useStore(s => s.setMenuItems)
   const resetOrders  = useStore(s => s.resetOrders)
+  const syncToCloud  = useStore(s => s.syncToCloud)
   const showToast    = useStore(s => s.showToast)
 
   const [printerStatus, setPrinterStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle')
@@ -467,6 +469,17 @@ export default function SettingsPage() {
 
           {/* Data management */}
           <Section title="ניהול נתונים" titleEn="Data Management">
+            {FIREBASE_ENABLED && (
+              <button
+                onClick={() => {
+                  syncToCloud()
+                  showToast('כל הנתונים סונכרנו לענן / All data synced to cloud')
+                }}
+                className="w-full py-3 rounded-xl border-2 border-navy/20 text-navy hover:border-navy hover:bg-navy hover:text-cream font-body text-sm transition-colors"
+              >
+                סנכרן לענן עכשיו / Sync to Cloud Now
+              </button>
+            )}
             <button
               onClick={() => {
                 if (confirm('האם לנקות את כל ההזמנות? פעולה זו לא ניתנת לביטול.')) {
