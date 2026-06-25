@@ -469,17 +469,19 @@ export default function SettingsPage() {
 
           {/* Data management */}
           <Section title="ניהול נתונים" titleEn="Data Management">
-            {FIREBASE_ENABLED && (
-              <button
-                onClick={() => {
-                  syncToCloud()
-                  showToast('כל הנתונים סונכרנו לענן / All data synced to cloud')
-                }}
-                className="w-full py-3 rounded-xl border-2 border-navy/20 text-navy hover:border-navy hover:bg-navy hover:text-cream font-body text-sm transition-colors"
-              >
-                סנכרן לענן עכשיו / Sync to Cloud Now
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!FIREBASE_ENABLED) {
+                  showToast('Firebase not configured — check Vercel env vars', 'error')
+                  return
+                }
+                syncToCloud()
+                showToast('כל הנתונים סונכרנו לענן / All data synced to cloud')
+              }}
+              className="w-full py-3 rounded-xl border-2 border-navy/20 text-navy hover:border-navy hover:bg-navy hover:text-cream font-body text-sm transition-colors"
+            >
+              סנכרן לענן עכשיו / Sync to Cloud Now
+            </button>
             <button
               onClick={() => {
                 if (confirm('האם לנקות את כל ההזמנות? פעולה זו לא ניתנת לביטול.')) {
