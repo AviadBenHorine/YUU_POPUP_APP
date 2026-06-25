@@ -60,7 +60,6 @@ function saveOrders(orders: Order[])  { localStorage.setItem(LS_ORDERS,   JSON.s
 function saveMenu(menu: MenuItem[])   { localStorage.setItem(LS_MENU,     JSON.stringify(menu))   }
 function saveSettings(s: AppSettings) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s))      }
 
-// Always computed from the current full list — safe for multi-device use.
 function nextOrderId(orders: Order[]): string {
   const nums = orders.map(o => parseInt(o.id.replace('YUU-', ''), 10)).filter(n => !isNaN(n))
   const max  = nums.length > 0 ? Math.max(...nums) : 0
@@ -73,15 +72,15 @@ interface AppState {
   logout: () => void
 
   menuItems: MenuItem[]
-  setMenuItems:            (items: MenuItem[]) => void
-  toggleItemAvailability:  (id: string) => void
-  _setMenuFromRemote:      (items: MenuItem[]) => void
+  setMenuItems:           (items: MenuItem[]) => void
+  toggleItemAvailability: (id: string) => void
+  _setMenuFromRemote:     (items: MenuItem[]) => void
 
   orders: Order[]
-  createOrder: (type: OrderType, items: OrderItem[], customerName?: string) => Order
-  updateOrder: (id: string, patch: Partial<Order>) => void
-  refreshOrders: () => void
-  resetOrders:   () => void
+  createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Order
+  updateOrder:          (id: string, patch: Partial<Order>) => void
+  refreshOrders:        () => void
+  resetOrders:          () => void
   _setOrdersFromRemote: (orders: Order[]) => void
 
   draftItems: OrderItem[]
@@ -91,11 +90,11 @@ interface AppState {
   clearDraft:    () => void
 
   settings: AppSettings
-  updateSettings:        (patch: Partial<AppSettings>) => void
+  updateSettings:         (patch: Partial<AppSettings>) => void
   _setSettingsFromRemote: (s: AppSettings) => void
-  setPin:                (role: Role, pin: string) => void
-  updateStockQuantity:   (menuItemId: string, qty: number | null) => void
-  decrementStockForItems:(items: OrderItem[]) => void
+  setPin:                 (role: Role, pin: string) => void
+  updateStockQuantity:    (menuItemId: string, qty: number | null) => void
+  decrementStockForItems: (items: OrderItem[]) => void
 
   toast: { message: string; type: 'success' | 'error' } | null
   showToast:  (message: string, type?: 'success' | 'error') => void
@@ -109,7 +108,7 @@ export const useStore = create<AppState>((set, get) => {
     login(role)  { sessionStorage.setItem(SS_ROLE, role); set({ currentRole: role }) },
     logout()     { sessionStorage.removeItem(SS_ROLE);    set({ currentRole: null }) },
 
-    // ── Menu ────────────────────────────────────────────────────────────────
+    // ── Menu ─────────────────────────────────────────────────────────────────
     menuItems: loadMenu(),
     setMenuItems(items) {
       saveMenu(items); set({ menuItems: items })
@@ -150,8 +149,8 @@ export const useStore = create<AppState>((set, get) => {
     updateOrder(id, patch) {
       const updated = get().orders.map(o => o.id === id ? { ...o, ...patch } : o)
       saveOrders(updated); set({ orders: updated })
-      const changedOrder = updated.find(o => o.id === id)
-      if (changedOrder) pushOrder(changedOrder)
+      const changed = updated.find(o => o.id === id)
+      if (changed) pushOrder(changed)
     },
     refreshOrders() { set({ orders: loadOrders() }) },
     resetOrders() {
@@ -162,14 +161,14 @@ export const useStore = create<AppState>((set, get) => {
       saveOrders(orders); set({ orders })
     },
 
-    // ── Draft ────────────────────────────────────────────────────────────────
+    // ── Draft ─────────────────────────────────────────────────────────────────
     draftItems: [],
     draftType:  null,
     setDraftItems(items) { set({ draftItems: items }) },
     setDraftType(type)   { set({ draftType:  type  }) },
     clearDraft()         { set({ draftItems: [], draftType: null }) },
 
-    // ── Settings ─────────────────────────────────────────────────────────────
+    // ── Settings ──────────────────────────────────────────────────────────────
     settings: loadSettings(),
     updateSettings(patch) {
       const settings = { ...get().settings, ...patch }
@@ -235,7 +234,7 @@ export const useStore = create<AppState>((set, get) => {
       }
     },
 
-    // ── Toast ────────────────────────────────────────────────────────────────
+    // ── Toast ─────────────────────────────────────────────────────────────────
     toast: null,
     showToast(message, type = 'success') {
       set({ toast: { message, type } })

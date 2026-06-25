@@ -2,7 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
   doc, setDoc, onSnapshot,
-  collection, getDocs, deleteDoc, writeBatch,
+  collection, getDocs, writeBatch,
   type Firestore,
 } from 'firebase/firestore'
 import type { AppSettings, MenuItem, Order } from '../types'
@@ -27,9 +27,8 @@ if (ENABLED) {
 }
 
 export const FIREBASE_ENABLED = ENABLED
-console.log('[Firebase]', ENABLED ? '✅ connected to ' + cfg.projectId : '❌ not configured')
 
-// ── Settings ────────────────────────────────────────────────────────────────
+// ── Settings ─────────────────────────────────────────────────────────────────
 
 export function pushSettings(settings: AppSettings): void {
   if (!_db) return
@@ -45,7 +44,7 @@ export function subscribeSettings(onUpdate: (s: AppSettings) => void): () => voi
   )
 }
 
-// ── Menu ─────────────────────────────────────────────────────────────────────
+// ── Menu ──────────────────────────────────────────────────────────────────────
 
 export function pushMenu(items: MenuItem[]): void {
   if (!_db) return
@@ -61,7 +60,7 @@ export function subscribeMenu(onUpdate: (items: MenuItem[]) => void): () => void
   )
 }
 
-// ── Orders ───────────────────────────────────────────────────────────────────
+// ── Orders ────────────────────────────────────────────────────────────────────
 
 export function pushOrder(order: Order): void {
   if (!_db) return

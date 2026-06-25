@@ -20,8 +20,8 @@ function App() {
   const setOrdersFromRemote   = useStore(s => s._setOrdersFromRemote)
   const setMenuFromRemote     = useStore(s => s._setMenuFromRemote)
 
-  // Real-time sync across all devices via Firestore.
-  // Each subscribe call is a no-op when Firebase env vars are not set.
+  // Real-time sync across all devices — settings, orders, and menu stay
+  // identical on every device. No-op when Firebase env vars are not set.
   useEffect(() => {
     const unsub1 = subscribeSettings(setSettingsFromRemote)
     const unsub2 = subscribeOrders(setOrdersFromRemote)
