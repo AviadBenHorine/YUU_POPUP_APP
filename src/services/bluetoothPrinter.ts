@@ -279,7 +279,7 @@ export class BluetoothPrinter {
     // Top padding ~1.5 cm before content starts
     await this.writePkt(gb01Packet(CMD_SET_ENERGY, new Uint8Array([0x35])))
     await new Promise(r => setTimeout(r, 100))
-    await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([120])))
+    await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([80])))
     await new Promise(r => setTimeout(r, 30))
 
     if (printInHebrew) {
