@@ -55,4 +55,5 @@ export interface AppSettings {
   pins: Record<Role, string>
   dessertTo: 'kitchen' | 'bar'  // which department handles desserts
   requirePaymentPhoto: boolean  // whether to require a payment proof photo
+  printerEnabled: boolean       // auto-print ticket after each order is taken
 }

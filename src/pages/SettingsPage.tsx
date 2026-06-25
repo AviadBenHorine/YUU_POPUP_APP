@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import { useStore } from '../stores/useStore'
@@ -221,6 +221,15 @@ export default function SettingsPage() {
 
   const [printerStatus, setPrinterStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle')
 
+  // Auto-reconnect to the last printer on mount
+  useEffect(() => {
+    if (printer.isConnected) { setPrinterStatus('connected'); return }
+    setPrinterStatus('connecting')
+    printer.tryAutoReconnect().then(ok => {
+      setPrinterStatus(ok ? 'connected' : 'idle')
+    })
+  }, [])
+
   // Menu editing state
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [addModal, setAddModal] = useState(false)
@@ -290,7 +299,11 @@ export default function SettingsPage() {
             <div className="flex items-center gap-4">
               <div className={`w-3 h-3 rounded-full ${printer.isConnected || printerStatus === 'connected' ? 'bg-green-500' : printerStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-red-400'}`} />
               <span className="font-body text-sm text-navy/70">
-                {printer.isConnected || printerStatus === 'connected' ? 'מחובר / Connected' : printerStatus === 'connecting' ? 'מתחבר...' : 'לא מחובר / Disconnected'}
+                {printer.isConnected || printerStatus === 'connected'
+                  ? `מחובר / Connected${printer.lastDeviceName ? ` — ${printer.lastDeviceName}` : ''}`
+                  : printerStatus === 'connecting'
+                  ? `מתחבר...${printer.lastDeviceName ? ` (${printer.lastDeviceName})` : ''}`
+                  : 'לא מחובר / Disconnected'}
               </span>
             </div>
             <div className="flex gap-3">
@@ -303,6 +316,24 @@ export default function SettingsPage() {
                 הדפסת בדיקה / Test Print
               </button>
             </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-navy/8">
+              <div>
+                <div className="font-body text-sm text-navy">הדפסה אוטומטית / Auto-print tickets</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  {(settings.printerEnabled ?? false)
+                    ? 'מופעל — מדפיס כרטיס אחרי כל הזמנה'
+                    : 'כבוי — הדפסה ידנית בלבד'}
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettings({ printerEnabled: !(settings.printerEnabled ?? false) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.printerEnabled ?? false) ? 'bg-green-500' : 'bg-navy/20'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.printerEnabled ?? false) ? 'right-1' : 'left-1'}`} />
+              </button>
+            </div>
+
             <div className="text-xs text-navy/40 font-body bg-amber-50 border border-amber-200 rounded-lg p-3">
               דורש Chrome/Edge. לחץ "חבר מדפסת" כדי לסרוק מכשירים קרובים.<br />
               Requires Chrome/Edge. Click "Connect Printer" to scan for nearby devices.

@@ -10,6 +10,7 @@ import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import BrowserWarning from '../components/BrowserWarning'
 import { useStore } from '../stores/useStore'
+import { printer } from '../services/bluetoothPrinter'
 import type { MenuItem, MenuCategory } from '../types'
 
 // ─── Draggable menu item ───
@@ -72,6 +73,83 @@ const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string; icon: stri
   dessert: { he: 'קינוחים', en: 'Desserts', icon: '🍮' },
 }
 
+// ─── Printer connect screen (shown when printerEnabled but not yet connected) ───
+type ConnectStatus = 'auto' | 'idle' | 'connecting' | 'failed'
+
+function PrinterConnectScreen({ onReady }: { onReady: () => void }) {
+  const [status, setStatus] = useState<ConnectStatus>('auto')
+  const [error, setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    printer.tryAutoReconnect().then(ok => {
+      if (ok) { onReady(); return }
+      setStatus('idle')
+    })
+  }, [])
+
+  async function handleConnect() {
+    setStatus('connecting')
+    setError(null)
+    try {
+      await printer.connect()
+      onReady()
+    } catch (e) {
+      setStatus('failed')
+      setError(e instanceof Error ? e.message : 'Connection failed')
+    }
+  }
+
+  return (
+    <div className="h-dvh flex flex-col bg-cream">
+      <BrowserWarning />
+      <TopBar title="הזמנות" titleEn="Orders" />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6 text-center">
+        <div className="text-6xl">🖨️</div>
+
+        <div>
+          <h2 className="font-display font-black text-navy text-2xl">חבר מדפסת</h2>
+          <p className="font-body text-navy/50 text-sm mt-1">Connect Printer</p>
+        </div>
+
+        {(status === 'auto' || status === 'connecting') && (
+          <div className="flex items-center gap-3 text-navy/60 font-body text-sm">
+            <div className="w-5 h-5 border-2 border-navy/30 border-t-navy rounded-full animate-spin shrink-0" />
+            {status === 'auto'
+              ? (printer.lastDeviceName
+                  ? `מחפש "${printer.lastDeviceName}"...`
+                  : 'מחפש מדפסת... / Searching...')
+              : 'מתחבר... / Connecting...'}
+          </div>
+        )}
+
+        {(status === 'idle' || status === 'failed') && (
+          <div className="w-full max-w-xs flex flex-col gap-3">
+            {error && (
+              <p className="font-body text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                {error}
+              </p>
+            )}
+            <button
+              onClick={handleConnect}
+              className="w-full py-5 rounded-2xl bg-navy text-cream font-display font-bold text-lg shadow-md hover:bg-navy/80 active:scale-95 transition-all double-border"
+            >
+              <div>{status === 'failed' ? 'נסה שוב / Retry' : 'חבר מדפסת / Connect'}</div>
+              <div className="text-cream/50 text-sm font-body mt-0.5">Tap to pair via Bluetooth</div>
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={onReady}
+          className="text-navy/40 font-body text-sm underline hover:text-navy/70 transition-colors mt-2"
+        >
+          המשך ללא מדפסת / Continue without printer
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function WaitressPage() {
   const menuItems    = useStore(s => s.menuItems)
   const settings     = useStore(s => s.settings)
@@ -84,6 +162,11 @@ export default function WaitressPage() {
   const showToast     = useStore(s => s.showToast)
 
   const navigate = useNavigate()
+
+  // Printer gate: show connect screen when printerEnabled but not yet connected
+  const [printerReady, setPrinterReady] = useState(() =>
+    !settings.printerEnabled || printer.isConnected
+  )
   const [activeItem, setActiveItem]     = useState<MenuItem | null>(null)
   const [notesModal, setNotesModal]     = useState<{ itemId: string; notes: string } | null>(null)
   const [cancelModal, setCancelModal]   = useState(false)
@@ -175,6 +258,10 @@ export default function WaitressPage() {
 
   const isTakeAway = draftType === 'take_away'
   const canProceed = draftItems.length > 0 && customerName.trim().length > 0
+
+  if (!printerReady) {
+    return <PrinterConnectScreen onReady={() => setPrinterReady(true)} />
+  }
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

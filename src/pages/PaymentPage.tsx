@@ -67,9 +67,8 @@ export default function PaymentPage() {
     })
     decrementStockForItems(order!.items)
     try {
-      if (printer.isConnected) {
-        printer.printKitchenTicket({ ...order!, status: 'sent_to_kitchen', paidAt: now }, menuItems)
-          .catch(e => console.warn('Print failed:', e))
+      if (printer.isConnected && (settings.printerEnabled ?? false)) {
+        printer.enqueuePrint({ ...order!, status: 'sent_to_kitchen', paidAt: now }, menuItems)
       }
     } catch {}
     setStep('confirmation')

@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   pins: { admin: '0000', waitress: '1111', kitchen: '2222', bar: '3333' },
   dessertTo: 'kitchen',
   requirePaymentPhoto: true,
+  printerEnabled: false,
 }
 
 function loadOrders(): Order[] {
