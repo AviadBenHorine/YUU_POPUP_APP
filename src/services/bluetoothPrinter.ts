@@ -211,13 +211,14 @@ export class BluetoothPrinter {
     const CHUNK = 100
     for (let i = 0; i < pkt.length; i += CHUNK) {
       await this.characteristic.writeValueWithoutResponse(pkt.slice(i, i + CHUNK))
-      await new Promise(r => setTimeout(r, 5))
+      // Delay only when a packet spans multiple chunks (never for our ≤56-byte packets)
+      if (i + CHUNK < pkt.length) await new Promise(r => setTimeout(r, 5))
     }
   }
 
   private async printBitmap(rows: Uint8Array[]): Promise<void> {
     await this.writePkt(gb01Packet(CMD_SET_ENERGY, new Uint8Array([0x35])))
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 20))
 
     // Skip blank rows and replace runs of them with a single fast feed command.
     let blankCount = 0
@@ -228,15 +229,13 @@ export class BluetoothPrinter {
       }
       if (blankCount > 0) {
         await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([Math.min(blankCount, 255)])))
-        await new Promise(r => setTimeout(r, 5))
         blankCount = 0
       }
       await this.writePkt(gb01Packet(CMD_PRINT_ROW, row))
-      await new Promise(r => setTimeout(r, 2))
     }
 
     // Trailing feed: remaining blank rows + 80 lines (~1 cm) so printout clears the cutter
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 20))
     await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([Math.min(blankCount + 80, 255)])))
   }
 
@@ -276,11 +275,10 @@ export class BluetoothPrinter {
     const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
     const isStaff = order.paymentMethod === 'staff'
 
-    // Top padding ~1.5 cm before content starts
+    // Top padding ~1 cm before content starts
     await this.writePkt(gb01Packet(CMD_SET_ENERGY, new Uint8Array([0x35])))
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 20))
     await this.writePkt(gb01Packet(CMD_FEED, new Uint8Array([80])))
-    await new Promise(r => setTimeout(r, 30))
 
     if (printInHebrew) {
       const typeHe     = order.orderType === 'sit_down' ? 'ישיבה' : 'לקחת'
