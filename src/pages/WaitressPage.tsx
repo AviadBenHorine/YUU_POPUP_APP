@@ -73,6 +73,17 @@ const CATEGORY_LABELS: Record<MenuCategory, { he: string; en: string; icon: stri
   dessert: { he: 'קינוחים', en: 'Desserts', icon: '🍮' },
 }
 
+const QUICK_TAGS = [
+  { he: 'ללא חלב',    en: 'No dairy'    },
+  { he: 'לא חריף',    en: 'Not spicy'   },
+  { he: 'ללא כוסברה', en: 'No cilantro' },
+  { he: 'ללא גלוטן',  en: 'No gluten'   },
+  { he: 'ללא בצל',    en: 'No onion'    },
+  { he: 'ללא שום',    en: 'No garlic'   },
+  { he: 'ללא אגוזים', en: 'No nuts'     },
+  { he: 'טבעוני',     en: 'Vegan'       },
+]
+
 // ─── Printer connect screen (shown when printerEnabled but not yet connected) ───
 type ConnectStatus = 'auto' | 'idle' | 'connecting' | 'failed'
 
@@ -483,15 +494,47 @@ export default function WaitressPage() {
       <Modal open={!!notesModal} onClose={() => setNotesModal(null)} title="הערה לפריט / Item Note">
         {notesModal && (
           <div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {QUICK_TAGS.map(tag => {
+                const active = notesModal.notes.includes(tag.he)
+                return (
+                  <button
+                    key={tag.he}
+                    onClick={() => {
+                      const current = notesModal.notes
+                      if (active) {
+                        const removed = current
+                          .replace(new RegExp(',?\\s*' + tag.he, 'g'), '')
+                          .replace(/^,\s*/, '')
+                          .trim()
+                        setNotesModal({ ...notesModal, notes: removed })
+                      } else {
+                        const appended = current.trim()
+                          ? current.trim() + ', ' + tag.he
+                          : tag.he
+                        setNotesModal({ ...notesModal, notes: appended })
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full border-2 font-body text-xs transition-all
+                      ${active
+                        ? 'bg-navy border-navy text-cream'
+                        : 'border-navy/20 text-navy/60 hover:border-navy/50 hover:text-navy'
+                      }`}
+                  >
+                    {tag.he}
+                  </button>
+                )
+              })}
+            </div>
             <textarea
               dir="auto"
               value={notesModal.notes}
               onChange={e => setNotesModal({ ...notesModal, notes: e.target.value })}
               placeholder="למשל: ללא כוסברה, אלרגיה לאגוזים..."
-              className="w-full border-2 border-navy/20 rounded-xl p-3 font-body text-navy text-sm resize-none h-24 focus:outline-none focus:border-gold bg-cream"
+              className="w-full border-2 border-navy/20 rounded-xl p-3 font-body text-navy text-sm resize-none h-20 focus:outline-none focus:border-gold bg-cream"
               autoFocus
             />
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-3">
               <button onClick={() => saveNotes(notesModal.notes)}
                 className="flex-1 py-3 bg-navy text-cream rounded-xl font-display font-bold text-sm hover:bg-navy/80 transition-colors">
                 שמור / Save
