@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Toast from './components/Toast'
@@ -11,9 +12,22 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminNav from './components/AdminNav'
 import { useStore } from './stores/useStore'
+import { subscribeSettings, subscribeOrders, subscribeMenu } from './services/firebase'
 
 function App() {
-  const currentRole = useStore(s => s.currentRole)
+  const currentRole           = useStore(s => s.currentRole)
+  const setSettingsFromRemote = useStore(s => s._setSettingsFromRemote)
+  const setOrdersFromRemote   = useStore(s => s._setOrdersFromRemote)
+  const setMenuFromRemote     = useStore(s => s._setMenuFromRemote)
+
+  // Real-time sync across all devices via Firestore.
+  // Each subscribe call is a no-op when Firebase env vars are not set.
+  useEffect(() => {
+    const unsub1 = subscribeSettings(setSettingsFromRemote)
+    const unsub2 = subscribeOrders(setOrdersFromRemote)
+    const unsub3 = subscribeMenu(setMenuFromRemote)
+    return () => { unsub1(); unsub2(); unsub3() }
+  }, [])
 
   return (
     <>

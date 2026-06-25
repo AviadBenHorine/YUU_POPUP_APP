@@ -2,13 +2,14 @@ import { create } from 'zustand'
 import type { MenuItem, Order, AppSettings, Role, OrderItem, OrderType } from '../types'
 import { DEFAULT_MENU } from '../lib/menuData'
 import { MOCK_ORDERS } from '../lib/mockOrders'
+import { pushSettings, pushOrder, pushMenu, clearOrders } from '../services/firebase'
 
-const LS_ORDERS = 'yuu_orders'
-const LS_MENU = 'yuu_menu'
+const LS_ORDERS   = 'yuu_orders'
+const LS_MENU     = 'yuu_menu'
 const LS_SETTINGS = 'yuu_settings'
-const SS_ROLE = 'yuu_role'
+const SS_ROLE     = 'yuu_role'
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   bitQR1: '/qr1.jpeg',
   bitQR2: '',
   bitQR3: '',
@@ -48,7 +49,6 @@ function loadSettings(): AppSettings {
         parsed.bitQR1 = parsed.bitQRImage
         delete parsed.bitQRImage
       }
-      // Deep-merge nested pins so new roles (bar) always get their default PIN
       const mergedPins = { ...DEFAULT_SETTINGS.pins, ...(parsed.pins as Record<string, string> ?? {}) }
       return { ...DEFAULT_SETTINGS, ...parsed, pins: mergedPins } as AppSettings
     }
@@ -56,50 +56,49 @@ function loadSettings(): AppSettings {
   return DEFAULT_SETTINGS
 }
 
-function saveOrders(orders: Order[]) { localStorage.setItem(LS_ORDERS, JSON.stringify(orders)) }
-function saveMenu(menu: MenuItem[])   { localStorage.setItem(LS_MENU,   JSON.stringify(menu))   }
-function saveSettings(s: AppSettings) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s))   }
+function saveOrders(orders: Order[])  { localStorage.setItem(LS_ORDERS,   JSON.stringify(orders)) }
+function saveMenu(menu: MenuItem[])   { localStorage.setItem(LS_MENU,     JSON.stringify(menu))   }
+function saveSettings(s: AppSettings) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s))      }
 
-let orderCounter = 0
-
+// Always computed from the current full list — safe for multi-device use.
 function nextOrderId(orders: Order[]): string {
-  if (orderCounter === 0) {
-    const nums = orders.map(o => parseInt(o.id.replace('YUU-', ''), 10)).filter(n => !isNaN(n))
-    orderCounter = nums.length > 0 ? Math.max(...nums) : 0
-  }
-  orderCounter++
-  return `YUU-${String(orderCounter).padStart(4, '0')}`
+  const nums = orders.map(o => parseInt(o.id.replace('YUU-', ''), 10)).filter(n => !isNaN(n))
+  const max  = nums.length > 0 ? Math.max(...nums) : 0
+  return `YUU-${String(max + 1).padStart(4, '0')}`
 }
 
 interface AppState {
   currentRole: Role | null
-  login: (role: Role) => void
+  login:  (role: Role) => void
   logout: () => void
 
   menuItems: MenuItem[]
-  setMenuItems: (items: MenuItem[]) => void
-  toggleItemAvailability: (id: string) => void
+  setMenuItems:            (items: MenuItem[]) => void
+  toggleItemAvailability:  (id: string) => void
+  _setMenuFromRemote:      (items: MenuItem[]) => void
 
   orders: Order[]
   createOrder: (type: OrderType, items: OrderItem[], customerName?: string) => Order
   updateOrder: (id: string, patch: Partial<Order>) => void
   refreshOrders: () => void
-  resetOrders: () => void
+  resetOrders:   () => void
+  _setOrdersFromRemote: (orders: Order[]) => void
 
   draftItems: OrderItem[]
-  draftType: OrderType | null
+  draftType:  OrderType | null
   setDraftItems: (items: OrderItem[]) => void
-  setDraftType: (type: OrderType | null) => void
-  clearDraft: () => void
+  setDraftType:  (type: OrderType | null) => void
+  clearDraft:    () => void
 
   settings: AppSettings
-  updateSettings: (patch: Partial<AppSettings>) => void
-  setPin: (role: Role, pin: string) => void
-  updateStockQuantity: (menuItemId: string, qty: number | null) => void
-  decrementStockForItems: (items: OrderItem[]) => void
+  updateSettings:        (patch: Partial<AppSettings>) => void
+  _setSettingsFromRemote: (s: AppSettings) => void
+  setPin:                (role: Role, pin: string) => void
+  updateStockQuantity:   (menuItemId: string, qty: number | null) => void
+  decrementStockForItems:(items: OrderItem[]) => void
 
   toast: { message: string; type: 'success' | 'error' } | null
-  showToast: (message: string, type?: 'success' | 'error') => void
+  showToast:  (message: string, type?: 'success' | 'error') => void
   clearToast: () => void
 }
 
@@ -110,22 +109,31 @@ export const useStore = create<AppState>((set, get) => {
     login(role)  { sessionStorage.setItem(SS_ROLE, role); set({ currentRole: role }) },
     logout()     { sessionStorage.removeItem(SS_ROLE);    set({ currentRole: null }) },
 
+    // ── Menu ────────────────────────────────────────────────────────────────
     menuItems: loadMenu(),
-    setMenuItems(items) { saveMenu(items); set({ menuItems: items }) },
+    setMenuItems(items) {
+      saveMenu(items); set({ menuItems: items })
+      pushMenu(items)
+    },
     toggleItemAvailability(id) {
       const items = get().menuItems.map(m => m.id === id ? { ...m, available: !m.available } : m)
       saveMenu(items); set({ menuItems: items })
+      pushMenu(items)
+    },
+    _setMenuFromRemote(items) {
+      saveMenu(items); set({ menuItems: items })
     },
 
+    // ── Orders ───────────────────────────────────────────────────────────────
     orders: loadOrders(),
     createOrder(type, items, customerName) {
-      const orders = loadOrders()
+      const currentOrders = get().orders
       const totalPrice = items.reduce((sum, oi) => {
         const mi = get().menuItems.find(m => m.id === oi.menuItemId)
         return sum + (mi?.price ?? 0) * oi.quantity
       }, 0)
       const order: Order = {
-        id: nextOrderId(orders),
+        id: nextOrderId(currentOrders),
         orderType: type,
         items,
         totalPrice,
@@ -134,53 +142,75 @@ export const useStore = create<AppState>((set, get) => {
         paymentMethod: 'bit',
         customerName: customerName?.trim() || undefined,
       }
-      const updated = [...orders, order]
+      const updated = [...currentOrders, order]
       saveOrders(updated); set({ orders: updated })
+      pushOrder(order)
       return order
     },
     updateOrder(id, patch) {
-      const orders = loadOrders().map(o => o.id === id ? { ...o, ...patch } : o)
-      saveOrders(orders); set({ orders })
+      const updated = get().orders.map(o => o.id === id ? { ...o, ...patch } : o)
+      saveOrders(updated); set({ orders: updated })
+      const changedOrder = updated.find(o => o.id === id)
+      if (changedOrder) pushOrder(changedOrder)
     },
     refreshOrders() { set({ orders: loadOrders() }) },
-    resetOrders()   { orderCounter = 0; saveOrders([]); set({ orders: [] }) },
+    resetOrders() {
+      saveOrders([]); set({ orders: [] })
+      clearOrders().catch(console.error)
+    },
+    _setOrdersFromRemote(orders) {
+      saveOrders(orders); set({ orders })
+    },
 
+    // ── Draft ────────────────────────────────────────────────────────────────
     draftItems: [],
-    draftType: null,
+    draftType:  null,
     setDraftItems(items) { set({ draftItems: items }) },
-    setDraftType(type)   { set({ draftType: type }) },
+    setDraftType(type)   { set({ draftType:  type  }) },
     clearDraft()         { set({ draftItems: [], draftType: null }) },
 
+    // ── Settings ─────────────────────────────────────────────────────────────
     settings: loadSettings(),
     updateSettings(patch) {
       const settings = { ...get().settings, ...patch }
+      saveSettings(settings); set({ settings })
+      pushSettings(settings)
+    },
+    _setSettingsFromRemote(remote) {
+      const settings: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...remote,
+        pins: { ...DEFAULT_SETTINGS.pins, ...remote.pins },
+      }
       saveSettings(settings); set({ settings })
     },
     setPin(role, pin) {
       const settings = { ...get().settings, pins: { ...get().settings.pins, [role]: pin } }
       saveSettings(settings); set({ settings })
+      pushSettings(settings)
     },
     updateStockQuantity(menuItemId, qty) {
       const { settings, menuItems } = get()
       const newQty = { ...settings.stockQuantities }
+      let newMenu = menuItems
       if (qty === null || qty <= 0) {
         delete newQty[menuItemId]
       } else {
         newQty[menuItemId] = qty
-        // Re-enable item if it was auto-disabled when stock hit zero
         const item = menuItems.find(m => m.id === menuItemId)
         if (item && !item.available) {
-          const newMenu = menuItems.map(m => m.id === menuItemId ? { ...m, available: true } : m)
-          saveMenu(newMenu)
-          set({ menuItems: newMenu })
+          newMenu = menuItems.map(m => m.id === menuItemId ? { ...m, available: true } : m)
+          saveMenu(newMenu); set({ menuItems: newMenu })
+          pushMenu(newMenu)
         }
       }
       const ns = { ...settings, stockQuantities: newQty }
       saveSettings(ns); set({ settings: ns })
+      pushSettings(ns)
     },
     decrementStockForItems(items) {
       const { settings, menuItems } = get()
-      let newQty = { ...settings.stockQuantities }
+      let newQty  = { ...settings.stockQuantities }
       let newMenu = [...menuItems]
       let changed = false
       for (const oi of items) {
@@ -200,9 +230,12 @@ export const useStore = create<AppState>((set, get) => {
         const ns = { ...settings, stockQuantities: newQty }
         saveSettings(ns); saveMenu(newMenu)
         set({ settings: ns, menuItems: newMenu })
+        pushSettings(ns)
+        pushMenu(newMenu)
       }
     },
 
+    // ── Toast ────────────────────────────────────────────────────────────────
     toast: null,
     showToast(message, type = 'success') {
       set({ toast: { message, type } })
