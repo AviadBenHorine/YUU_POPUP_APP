@@ -337,54 +337,8 @@ export default function WaitressPage() {
           {/* ─── Right panel: Order zone ─── */}
           <div className="flex-1 flex flex-col min-h-0 bg-cream/40 border-l-2 border-navy/10">
 
-            {/* Customer name input */}
-            <div className="px-4 py-2.5 border-b-2 border-navy/10 shrink-0 bg-white/80">
-              <input
-                type="text"
-                dir="rtl"
-                value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                placeholder="שם לקוח (חובה) / Customer name *"
-                className={`w-full bg-transparent font-body text-navy placeholder-navy/35 focus:outline-none text-sm ${
-                  customerName.trim() ? 'text-navy' : ''
-                }`}
-              />
-            </div>
-
-            {/* Order-level comment — applied to every item */}
-            <div className="px-4 py-2.5 border-b-2 border-navy/10 shrink-0 bg-white/60">
-              <input
-                type="text"
-                dir="rtl"
-                value={orderComment}
-                onChange={e => setOrderComment(e.target.value)}
-                placeholder="💬 הערה להזמנה / Order note (all items)"
-                className="w-full bg-transparent font-body text-navy/80 placeholder-navy/30 focus:outline-none text-sm"
-              />
-            </div>
-
-            {/* Order zone header: take-away toggle + item count */}
-            <div className="px-4 py-2 border-b-2 border-navy/10 flex items-center justify-between shrink-0 bg-white/60">
-              {/* Take-away toggle */}
-              <button
-                onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
-                className={`
-                  flex items-center gap-2.5 px-3 py-1.5 rounded-xl border-2 font-body text-sm transition-all
-                  ${isTakeAway
-                    ? 'border-gold bg-gold/10 text-navy font-semibold shadow-sm'
-                    : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
-                  }
-                `}
-              >
-                <span className={`
-                  w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
-                  ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}
-                `}>
-                  {isTakeAway && '✓'}
-                </span>
-                <span>🥡 לקחת / Take Away</span>
-              </button>
-
+            {/* Item count header */}
+            <div className="px-4 py-2 border-b-2 border-navy/10 flex items-center justify-end shrink-0 bg-white/60">
               <span className="font-body text-xs text-navy/40">{draftItems.length} פריטים</span>
             </div>
 
@@ -450,7 +404,7 @@ export default function WaitressPage() {
               )}
             </OrderDropZone>
 
-            {/* Footer: total + actions */}
+            {/* Footer: total + order details + actions */}
             <div className="shrink-0 border-t-2 border-navy/10 bg-white/70">
               {/* Total */}
               <div className="px-4 py-3 flex items-center justify-between border-b border-navy/8">
@@ -458,8 +412,48 @@ export default function WaitressPage() {
                 <span className="font-display font-black text-navy text-2xl">₪{totalPrice}</span>
               </div>
 
+              {/* Customer name + take-away + order note */}
+              <div className="px-4 pt-3 pb-1 flex flex-col gap-2">
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                  placeholder="שם לקוח (חובה) / Customer name *"
+                  className={`w-full bg-cream/60 border-2 rounded-xl px-3 py-2 font-body text-sm focus:outline-none focus:border-gold transition-colors ${
+                    customerName.trim() ? 'border-navy/20 text-navy' : 'border-navy/10 text-navy placeholder-navy/35'
+                  }`}
+                />
+                <button
+                  onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
+                  className={`
+                    flex items-center gap-2.5 px-3 py-2 rounded-xl border-2 font-body text-sm transition-all w-full
+                    ${isTakeAway
+                      ? 'border-gold bg-gold/10 text-navy font-semibold'
+                      : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
+                    }
+                  `}
+                >
+                  <span className={`
+                    w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
+                    ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}
+                  `}>
+                    {isTakeAway && '✓'}
+                  </span>
+                  <span>🥡 לקחת / Take Away</span>
+                </button>
+                <input
+                  type="text"
+                  dir="rtl"
+                  value={orderComment}
+                  onChange={e => setOrderComment(e.target.value)}
+                  placeholder="💬 הערה להזמנה / Order note (all items)"
+                  className="w-full bg-cream/60 border-2 border-navy/10 rounded-xl px-3 py-2 font-body text-sm text-navy/80 placeholder-navy/30 focus:outline-none focus:border-gold transition-colors"
+                />
+              </div>
+
               {/* Buttons */}
-              <div className="px-4 py-3 flex flex-col gap-2">
+              <div className="px-4 pt-2 pb-3 flex flex-col gap-2">
                 <button
                   onClick={handleProceedToPayment}
                   disabled={!canProceed}
@@ -472,9 +466,6 @@ export default function WaitressPage() {
                   `}
                 >
                   <div>המשך לגביית תשלום</div>
-                  {!customerName.trim() && draftItems.length > 0 && (
-                    <div className="text-xs font-body mt-0.5 text-navy/40">נא להזין שם לקוח / Enter customer name</div>
-                  )}
                 </button>
 
                 {draftItems.length > 0 && (
