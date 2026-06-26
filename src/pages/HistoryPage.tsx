@@ -69,11 +69,10 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 15
 
-  // Only show orders that actually reached the kitchen
-  // Cancelled orders are included only if they were already sent to kitchen
+  // Show all orders except pre-payment cancellations that never reached the kitchen
   const filtered = orders.filter(o => {
     if (o.status === 'cancelled' && !o.sentToKitchenAt) return false
-    if (!['sent_to_kitchen', 'ready', 'cancelled', 'deleted'].includes(o.status)) return false
+    if (!['open', 'awaiting_payment', 'sent_to_kitchen', 'ready', 'cancelled', 'deleted'].includes(o.status)) return false
     if (filterStatus !== 'all' && o.status !== filterStatus) return false
     if (filterType !== 'all' && o.orderType !== filterType) return false
     if (filterDateFrom && o.createdAt < new Date(filterDateFrom).toISOString()) return false
@@ -125,7 +124,7 @@ export default function HistoryPage() {
                   className="border-2 border-navy/15 rounded-lg px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-gold"
                 >
                   <option value="all">הכל / All</option>
-                  {(['sent_to_kitchen', 'ready', 'cancelled', 'deleted'] as const).map(k => (
+                  {(['open', 'awaiting_payment', 'sent_to_kitchen', 'ready', 'cancelled', 'deleted'] as const).map(k => (
                     <option key={k} value={k}>{STATUS_LABELS[k].he} / {STATUS_LABELS[k].en}</option>
                   ))}
                 </select>

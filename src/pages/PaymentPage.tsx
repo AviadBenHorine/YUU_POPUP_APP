@@ -179,7 +179,10 @@ export default function PaymentPage() {
               </div>
 
               <button
-                onClick={() => requirePhoto ? setStep('photo') : finaliseOrder('bit')}
+                onClick={() => {
+                  if (requirePhoto) { setStep('photo') }
+                  else { finaliseOrder('bit'); showToast('✓ הזמנה נשלחה למטבח / Order sent to kitchen') }
+                }}
                 className="w-full py-5 rounded-2xl bg-navy text-cream font-display font-bold text-lg shadow-md hover:bg-navy/80 active:scale-95 transition-all double-border"
               >
                 <div>{requirePhoto ? 'הלקוח שילם — צלם אישור' : 'הלקוח שילם ✓'}</div>

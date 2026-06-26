@@ -135,6 +135,11 @@ function QRSlotCard({ slot }: { slot: QRSlot }) {
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 500_000) {
+      showToast('הקובץ גדול מדי — מקסימום 500KB / File too large — max 500KB', 'error')
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = ev => {
       updateSettings({ [key]: ev.target?.result as string })
@@ -146,12 +151,10 @@ function QRSlotCard({ slot }: { slot: QRSlot }) {
 
   function handleRemove() {
     if (slot === 1) {
-      // slot 1 always has the hard-coded fallback, can't be fully removed
       updateSettings({ bitQR1: '/qr1.jpeg' })
       showToast('QR 1 אופס לברירת המחדל')
     } else {
-      updateSettings({ [key]: '' })
-      if (isActive) updateSettings({ activeQRSlot: 1 })
+      updateSettings({ [key]: '', ...(isActive ? { activeQRSlot: 1 } : {}) })
       showToast(`QR ${slot} הוסר`)
     }
   }

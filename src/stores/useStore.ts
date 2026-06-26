@@ -9,6 +9,8 @@ const LS_MENU     = 'yuu_menu'
 const LS_SETTINGS = 'yuu_settings'
 const SS_ROLE     = 'yuu_role'
 
+let _toastTimer: ReturnType<typeof setTimeout> | null = null
+
 export const DEFAULT_SETTINGS: AppSettings = {
   bitQR1: '/qr1.jpeg',
   bitQR2: '',
@@ -256,8 +258,9 @@ export const useStore = create<AppState>((set, get) => {
     // ── Toast ─────────────────────────────────────────────────────────────────
     toast: null,
     showToast(message, type = 'success') {
+      if (_toastTimer) clearTimeout(_toastTimer)
       set({ toast: { message, type } })
-      setTimeout(() => set({ toast: null }), 3500)
+      _toastTimer = setTimeout(() => { set({ toast: null }); _toastTimer = null }, 3500)
     },
     clearToast() { set({ toast: null }) },
   }
