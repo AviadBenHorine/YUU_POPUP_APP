@@ -3,7 +3,17 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(lsof -ti:5174)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx tsc *)",
+      "Bash(npx playwright *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(sips -s format jpeg -z 800 1200 /Users/aviadbenhorine/Downloads/IMG_3933.HEIC --out /tmp/print_result.jpg)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget"
     ]
   }
 }

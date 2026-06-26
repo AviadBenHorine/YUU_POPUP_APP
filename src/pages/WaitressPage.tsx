@@ -173,6 +173,7 @@ export default function WaitressPage() {
   const [cancelModal, setCancelModal]   = useState(false)
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [orderComment, setOrderComment] = useState('')
+  const [orderCommentOpen, setOrderCommentOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
   const [customerName, setCustomerName] = useState('')
 
@@ -425,31 +426,28 @@ export default function WaitressPage() {
                   }`}
                 />
                 <button
-                  onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
-                  className={`
-                    flex items-center gap-2.5 px-3 py-2 rounded-xl border-2 font-body text-sm transition-all w-full
-                    ${isTakeAway
-                      ? 'border-gold bg-gold/10 text-navy font-semibold'
-                      : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
-                    }
-                  `}
+                  type="button"
+                  onClick={() => setOrderCommentOpen(true)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border-2 font-body text-sm transition-all text-right
+                    ${orderComment.trim()
+                      ? 'border-gold bg-gold/10 text-navy'
+                      : 'border-navy/15 text-navy/40 hover:border-navy/30 hover:text-navy/60'
+                    }`}
                 >
-                  <span className={`
-                    w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
-                    ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}
-                  `}>
-                    {isTakeAway && '✓'}
+                  <span className="text-base shrink-0">💬</span>
+                  <span className="flex-1 truncate min-w-0" dir="rtl">
+                    {orderComment.trim() || 'הערה להזמנה / Order note'}
                   </span>
-                  <span>🥡 לקחת / Take Away</span>
+                  {orderComment.trim() && (
+                    <span
+                      role="button"
+                      onClick={e => { e.stopPropagation(); setOrderComment('') }}
+                      className="shrink-0 text-navy/30 hover:text-navy/70 transition-colors text-xs px-1"
+                    >
+                      ✕
+                    </span>
+                  )}
                 </button>
-                <input
-                  type="text"
-                  dir="rtl"
-                  value={orderComment}
-                  onChange={e => setOrderComment(e.target.value)}
-                  placeholder="💬 הערה להזמנה / Order note (all items)"
-                  className="w-full bg-cream/60 border-2 border-navy/10 rounded-xl px-3 py-2 font-body text-sm text-navy/80 placeholder-navy/30 focus:outline-none focus:border-gold transition-colors"
-                />
               </div>
 
               {/* Buttons */}
@@ -549,6 +547,71 @@ export default function WaitressPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Order comment modal */}
+      <Modal open={orderCommentOpen} onClose={() => setOrderCommentOpen(false)} title="הערה להזמנה / Order Note">
+        <div className="space-y-3">
+          {(settings.quickTags ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {(settings.quickTags ?? []).map(tag => {
+                const active = orderComment.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      if (active) {
+                        const removed = orderComment
+                          .replace(new RegExp(',?\\s*' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '')
+                          .replace(/^,\s*/, '')
+                          .trim()
+                        setOrderComment(removed)
+                      } else {
+                        setOrderComment(orderComment.trim() ? orderComment.trim() + ', ' + tag : tag)
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full border-2 font-body text-xs transition-all
+                      ${active
+                        ? 'bg-navy border-navy text-cream'
+                        : 'border-navy/20 text-navy/60 hover:border-navy/50 hover:text-navy'
+                      }`}
+                  >
+                    {tag}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <textarea
+            dir="rtl"
+            value={orderComment}
+            onChange={e => setOrderComment(e.target.value)}
+            placeholder="הערה לכל הפריטים... / Note for all items..."
+            className="w-full border-2 border-navy/20 rounded-xl p-3 font-body text-navy text-sm resize-none h-20 focus:outline-none focus:border-gold bg-cream"
+            autoFocus
+          />
+          <button
+            onClick={() => setDraftType(isTakeAway ? 'sit_down' : 'take_away')}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border-2 font-body text-sm transition-all w-full
+              ${isTakeAway
+                ? 'border-gold bg-gold/10 text-navy font-semibold'
+                : 'border-navy/15 text-navy/45 hover:border-navy/30 hover:text-navy/60'
+              }`}
+          >
+            <span className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all text-xs font-bold
+              ${isTakeAway ? 'bg-gold border-gold text-white' : 'border-navy/25 bg-white'}`}>
+              {isTakeAway && '✓'}
+            </span>
+            <span>🥡 לקחת / Take Away</span>
+          </button>
+          <button
+            onClick={() => setOrderCommentOpen(false)}
+            className="w-full py-3 bg-navy text-cream rounded-xl font-display font-bold text-sm hover:bg-navy/80 transition-colors"
+          >
+            אישור / Done
+          </button>
+        </div>
       </Modal>
 
       {/* Cancel modal */}
