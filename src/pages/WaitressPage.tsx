@@ -172,6 +172,7 @@ export default function WaitressPage() {
   const [notesModal, setNotesModal]     = useState<{ itemIndex: number; notes: string } | null>(null)
   const [cancelModal, setCancelModal]   = useState(false)
   const [creatingOrder, setCreatingOrder] = useState(false)
+  const [orderComment, setOrderComment] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
   const [customerName, setCustomerName] = useState('')
 
@@ -245,8 +246,16 @@ export default function WaitressPage() {
     if (draftItems.length === 0 || creatingOrder) return
     setCreatingOrder(true)
     try {
-      const order = await createOrder(draftType ?? 'sit_down', draftItems, customerName)
+      const comment = orderComment.trim()
+      const items = comment
+        ? draftItems.map(oi => ({
+            ...oi,
+            notes: oi.notes ? `${comment} | ${oi.notes}` : comment,
+          }))
+        : draftItems
+      const order = await createOrder(draftType ?? 'sit_down', items, customerName)
       setCustomerName('')
+      setOrderComment('')
       clearDraft()
       navigate(`/payment/${order.id}`)
     } catch {
@@ -258,6 +267,7 @@ export default function WaitressPage() {
 
   function handleCancel() {
     clearDraft()
+    setOrderComment('')
     setCancelModal(false)
     showToast('ההזמנה בוטלה / Order cancelled', 'error')
   }
@@ -338,6 +348,18 @@ export default function WaitressPage() {
                 className={`w-full bg-transparent font-body text-navy placeholder-navy/35 focus:outline-none text-sm ${
                   customerName.trim() ? 'text-navy' : ''
                 }`}
+              />
+            </div>
+
+            {/* Order-level comment — applied to every item */}
+            <div className="px-4 py-2.5 border-b-2 border-navy/10 shrink-0 bg-white/60">
+              <input
+                type="text"
+                dir="rtl"
+                value={orderComment}
+                onChange={e => setOrderComment(e.target.value)}
+                placeholder="💬 הערה להזמנה / Order note (all items)"
+                className="w-full bg-transparent font-body text-navy/80 placeholder-navy/30 focus:outline-none text-sm"
               />
             </div>
 
