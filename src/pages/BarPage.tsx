@@ -280,11 +280,11 @@ export default function BarPage() {
     const order = orders.find(o => o.id === id)
     if (!order) return
     const newChecked = { ...(order.checkedItems ?? {}) }
-    order.items.forEach(oi => {
+    order.items.forEach((oi, idx) => {
       const mi = menuItems.find(m => m.id === oi.menuItemId)
       if (!mi) return
-      if (mi.category === 'drink') delete newChecked[oi.menuItemId]
-      if (mi.category === 'dessert' && dessertTo === 'bar') delete newChecked[oi.menuItemId]
+      if (mi.category === 'drink') delete newChecked[String(idx)]
+      if (mi.category === 'dessert' && dessertTo === 'bar') delete newChecked[String(idx)]
     })
     updateOrder(id, {
       checkedItems: newChecked,

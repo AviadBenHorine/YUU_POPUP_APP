@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { MenuItem, Order, AppSettings, Role, OrderItem, OrderType } from '../types'
 import { DEFAULT_MENU } from '../lib/menuData'
 import { MOCK_ORDERS } from '../lib/mockOrders'
-import { pushSettings, pushOrder, pushMenu, clearOrders } from '../services/firebase'
+import { pushSettings, pushOrder, pushMenu, clearOrders, reserveOrderId, resetOrderCounter } from '../services/firebase'
 
 const LS_ORDERS   = 'yuu_orders'
 const LS_MENU     = 'yuu_menu'
@@ -82,7 +82,7 @@ interface AppState {
   _setMenuFromRemote:     (items: MenuItem[]) => void
 
   orders: Order[]
-  createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Order
+  createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Promise<Order>
   updateOrder:          (id: string, patch: Partial<Order>) => void
   refreshOrders:        () => void
   resetOrders:          () => void
@@ -132,14 +132,17 @@ export const useStore = create<AppState>((set, get) => {
 
     // ── Orders ───────────────────────────────────────────────────────────────
     orders: loadOrders(),
-    createOrder(type, items, customerName) {
+    async createOrder(type, items, customerName) {
       const currentOrders = get().orders
       const totalPrice = items.reduce((sum, oi) => {
         const mi = get().menuItems.find(m => m.id === oi.menuItemId)
         return sum + (mi?.price ?? 0) * oi.quantity
       }, 0)
+      const nums = currentOrders.map(o => parseInt(o.id.replace('YUU-', ''), 10)).filter(n => !isNaN(n))
+      const localMax = nums.length > 0 ? Math.max(...nums) : 0
+      const id = await reserveOrderId(localMax)
       const order: Order = {
-        id: nextOrderId(currentOrders),
+        id,
         orderType: type,
         items,
         totalPrice,
@@ -163,6 +166,7 @@ export const useStore = create<AppState>((set, get) => {
     resetOrders() {
       saveOrders([]); set({ orders: [] })
       clearOrders().catch(console.error)
+      resetOrderCounter().catch(console.error)
     },
     _setOrdersFromRemote(orders) {
       saveOrders(orders); set({ orders })

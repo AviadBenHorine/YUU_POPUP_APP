@@ -284,11 +284,11 @@ export default function KitchenPage() {
     if (!order) return
     // Uncheck kitchen items and clear kitchenDoneAt so card reappears
     const newChecked = { ...(order.checkedItems ?? {}) }
-    order.items.forEach(oi => {
+    order.items.forEach((oi, idx) => {
       const mi = menuItems.find(m => m.id === oi.menuItemId)
       if (!mi) return
-      if (mi.category === 'food') delete newChecked[oi.menuItemId]
-      if (mi.category === 'dessert' && dessertTo === 'kitchen') delete newChecked[oi.menuItemId]
+      if (mi.category === 'food') delete newChecked[String(idx)]
+      if (mi.category === 'dessert' && dessertTo === 'kitchen') delete newChecked[String(idx)]
     })
     updateOrder(id, {
       checkedItems: newChecked,

@@ -12,6 +12,13 @@ const ROLES: { role: Role; label: string; labelEn: string; icon: string; default
 
 const LOCKOUT_MS = 60_000
 const MAX_ATTEMPTS = 3
+const LS_ATTEMPTS = 'yuu_login_attempts'
+const LS_LOCKOUTS = 'yuu_login_lockouts'
+const DEFAULT_COUNTERS: Record<Role, number> = { admin: 0, waitress: 0, kitchen: 0, bar: 0 }
+
+function loadLS<T>(key: string, fallback: T): T {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback } catch { return fallback }
+}
 
 export default function LoginPage() {
   const settings = useStore(s => s.settings)
@@ -21,9 +28,12 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<(typeof ROLES)[0] | null>(null)
   const [pin, setPin] = useState('')
   const [shaking, setShaking] = useState(false)
-  const [attempts, setAttempts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0, bar: 0 })
-  const [lockouts, setLockouts] = useState<Record<Role, number>>({ admin: 0, waitress: 0, kitchen: 0, bar: 0 })
+  const [attempts, setAttempts] = useState<Record<Role, number>>(() => loadLS(LS_ATTEMPTS, DEFAULT_COUNTERS))
+  const [lockouts, setLockouts] = useState<Record<Role, number>>(() => loadLS(LS_LOCKOUTS, DEFAULT_COUNTERS))
   const [lockoutCountdown, setLockoutCountdown] = useState(0)
+
+  useEffect(() => { localStorage.setItem(LS_ATTEMPTS, JSON.stringify(attempts)) }, [attempts])
+  useEffect(() => { localStorage.setItem(LS_LOCKOUTS, JSON.stringify(lockouts)) }, [lockouts])
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 

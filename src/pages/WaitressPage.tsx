@@ -171,6 +171,7 @@ export default function WaitressPage() {
   const [activeItem, setActiveItem]     = useState<MenuItem | null>(null)
   const [notesModal, setNotesModal]     = useState<{ itemIndex: number; notes: string } | null>(null)
   const [cancelModal, setCancelModal]   = useState(false)
+  const [creatingOrder, setCreatingOrder] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
   const [customerName, setCustomerName] = useState('')
 
@@ -240,12 +241,19 @@ export default function WaitressPage() {
     setNotesModal(null)
   }
 
-  function handleProceedToPayment() {
-    if (draftItems.length === 0) return
-    const order = createOrder(draftType ?? 'sit_down', draftItems, customerName)
-    setCustomerName('')
-    clearDraft()
-    navigate(`/payment/${order.id}`)
+  async function handleProceedToPayment() {
+    if (draftItems.length === 0 || creatingOrder) return
+    setCreatingOrder(true)
+    try {
+      const order = await createOrder(draftType ?? 'sit_down', draftItems, customerName)
+      setCustomerName('')
+      clearDraft()
+      navigate(`/payment/${order.id}`)
+    } catch {
+      showToast('שגיאה ביצירת הזמנה / Error creating order', 'error')
+    } finally {
+      setCreatingOrder(false)
+    }
   }
 
   function handleCancel() {
@@ -255,7 +263,7 @@ export default function WaitressPage() {
   }
 
   const isTakeAway = draftType === 'take_away'
-  const canProceed = draftItems.length > 0 && customerName.trim().length > 0
+  const canProceed = draftItems.length > 0 && customerName.trim().length > 0 && !creatingOrder
 
   if (!printerReady) {
     return <PrinterConnectScreen onReady={() => setPrinterReady(true)} />

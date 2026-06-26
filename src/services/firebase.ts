@@ -2,7 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
   doc, getDoc, setDoc, onSnapshot,
-  collection, getDocs, writeBatch,
+  collection, getDocs, writeBatch, runTransaction,
   type Firestore,
 } from 'firebase/firestore'
 import type { AppSettings, MenuItem, Order } from '../types'
@@ -105,4 +105,24 @@ export async function fetchInitialData(): Promise<{
     menu:     menuSnap.exists()     ? ((menuSnap.data().items ?? []) as MenuItem[]) : null,
     orders:   ordersSnap.docs.map(d => d.data() as Order),
   }
+}
+
+// ── Order ID counter (atomic, prevents collision on multi-device) ─────────────
+
+export async function reserveOrderId(localMax: number): Promise<string> {
+  if (!_db) return `YUU-${String(localMax + 1).padStart(4, '0')}`
+  const counterRef = doc(_db, 'meta', 'orderCounter')
+  let num = localMax + 1
+  await runTransaction(_db, async (tx) => {
+    const snap = await tx.get(counterRef)
+    const serverCount = snap.exists() ? (snap.data().count as number) : 0
+    num = Math.max(localMax, serverCount) + 1
+    tx.set(counterRef, { count: num })
+  })
+  return `YUU-${String(num).padStart(4, '0')}`
+}
+
+export async function resetOrderCounter(): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'meta', 'orderCounter'), { count: 0 })
 }

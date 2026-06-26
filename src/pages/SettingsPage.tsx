@@ -540,7 +540,7 @@ export default function SettingsPage() {
                     value={settings.agingYellowMins ?? 5}
                     onChange={e => {
                       const v = parseInt(e.target.value)
-                      if (!isNaN(v) && v >= 1) updateSettings({ agingYellowMins: v })
+                      if (!isNaN(v) && v >= 1 && v < (settings.agingRedMins ?? 10)) updateSettings({ agingYellowMins: v })
                     }}
                     className="w-full border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-amber-400"
                   />
@@ -552,7 +552,7 @@ export default function SettingsPage() {
                     value={settings.agingRedMins ?? 10}
                     onChange={e => {
                       const v = parseInt(e.target.value)
-                      if (!isNaN(v) && v >= 1) updateSettings({ agingRedMins: v })
+                      if (!isNaN(v) && v >= 1 && v > (settings.agingYellowMins ?? 5)) updateSettings({ agingRedMins: v })
                     }}
                     className="w-full border-2 border-red-200 rounded-xl px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-red-400"
                   />
