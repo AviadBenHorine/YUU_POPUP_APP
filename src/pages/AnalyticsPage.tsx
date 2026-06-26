@@ -11,7 +11,6 @@ const COLORS = ['#1A2340', '#C8A96E', '#4B6380']
 function fmtCurrency(n: number) { return `₪${n.toLocaleString()}` }
 
 export default function AnalyticsPage() {
-  const today = new Date().toISOString().slice(0, 10)
   const orders = useStore(s => s.orders)
   const menuItems = useStore(s => s.menuItems)
   const resetOrders = useStore(s => s.resetOrders)
@@ -19,7 +18,7 @@ export default function AnalyticsPage() {
 
   const [confirmReset, setConfirmReset] = useState(false)
 
-  // Staff orders are excluded from all revenue and statistics
+  // Staff orders are excluded from all revenue statistics
   const paidOrders = useMemo(() =>
     orders.filter(o =>
       !['open', 'awaiting_payment', 'cancelled'].includes(o.status) &&
@@ -28,26 +27,20 @@ export default function AnalyticsPage() {
     [orders]
   )
 
-  const staffOrdersToday = useMemo(() =>
+  const staffOrders = useMemo(() =>
     orders.filter(o =>
       !['open', 'awaiting_payment', 'cancelled'].includes(o.status) &&
-      o.paymentMethod === 'staff' &&
-      o.createdAt.startsWith(today)
+      o.paymentMethod === 'staff'
     ),
-    [orders, today]
+    [orders]
   )
 
-  const todayOrders = useMemo(() =>
-    paidOrders.filter(o => o.createdAt.startsWith(today)),
-    [paidOrders]
-  )
-
-  // KPIs — all based on today
-  const totalRevenue = todayOrders.reduce((s, o) => s + o.totalPrice, 0)
-  const avgOrderValue = todayOrders.length > 0 ? Math.round(totalRevenue / todayOrders.length) : 0
+  // KPIs — all-time
+  const totalRevenue = paidOrders.reduce((s, o) => s + o.totalPrice, 0)
+  const avgOrderValue = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0
 
   const itemCounts: Record<string, number> = {}
-  for (const o of todayOrders) {
+  for (const o of paidOrders) {
     for (const oi of o.items) {
       itemCounts[oi.menuItemId] = (itemCounts[oi.menuItemId] ?? 0) + oi.quantity
     }
@@ -59,35 +52,44 @@ export default function AnalyticsPage() {
 
   const mostPopular = topItems[0]?.name ?? '—'
 
-  const sitDownCount = todayOrders.filter(o => o.orderType === 'sit_down').length
-  const takeAwayCount = todayOrders.filter(o => o.orderType === 'take_away').length
+  const sitDownCount = paidOrders.filter(o => o.orderType === 'sit_down').length
+  const takeAwayCount = paidOrders.filter(o => o.orderType === 'take_away').length
   const totalCount = sitDownCount + takeAwayCount
 
-  // Hourly data — from first order's hour to last (or current hour)
+  // Hourly pattern — aggregate by hour-of-day across all history (shows peak hours)
   const hourlyData = useMemo(() => {
-    if (todayOrders.length === 0) {
-      const h = new Date().getHours()
-      return [{ hour: `${String(h).padStart(2,'0')}:00`, orders: 0, ישיבה: 0, לקחת: 0 }]
+    const buckets: Record<number, { orders: number; sit: number; take: number }> = {}
+    for (let h = 0; h < 24; h++) buckets[h] = { orders: 0, sit: 0, take: 0 }
+
+    for (const o of paidOrders) {
+      const h = new Date(o.createdAt).getHours()
+      buckets[h].orders++
+      if (o.orderType === 'sit_down') buckets[h].sit++
+      else buckets[h].take++
     }
-    const hours = todayOrders.map(o => new Date(o.createdAt).getHours())
-    const firstHour = Math.min(...hours)
-    const lastHour = Math.max(Math.max(...hours), new Date().getHours())
-    return Array.from({ length: lastHour - firstHour + 1 }, (_, i) => {
-      const hour = firstHour + i
-      const hourStr = `${String(hour).padStart(2, '0')}:00`
-      const hourOrders = todayOrders.filter(o => new Date(o.createdAt).getHours() === hour)
+
+    const activeHours = Object.keys(buckets).map(Number).filter(h => buckets[h].orders > 0)
+    if (activeHours.length === 0) {
+      const h = new Date().getHours()
+      return [{ hour: `${String(h).padStart(2, '0')}:00`, orders: 0, ישיבה: 0, לקחת: 0 }]
+    }
+
+    const minH = Math.min(...activeHours)
+    const maxH = Math.max(...activeHours)
+    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
+      const h = minH + i
       return {
-        hour: hourStr,
-        orders: hourOrders.length,
-        ישיבה: hourOrders.filter(o => o.orderType === 'sit_down').length,
-        לקחת: hourOrders.filter(o => o.orderType === 'take_away').length,
+        hour: `${String(h).padStart(2, '0')}:00`,
+        orders: buckets[h].orders,
+        ישיבה: buckets[h].sit,
+        לקחת: buckets[h].take,
       }
     })
-  }, [todayOrders])
+  }, [paidOrders])
 
-  // Revenue by category (today)
+  // Revenue by category (all-time)
   const catRevenue: Record<string, number> = { food: 0, drink: 0, dessert: 0 }
-  for (const o of todayOrders) {
+  for (const o of paidOrders) {
     for (const oi of o.items) {
       const mi = menuItems.find(m => m.id === oi.menuItemId)
       if (mi) catRevenue[mi.category] = (catRevenue[mi.category] ?? 0) + mi.price * oi.quantity
@@ -105,7 +107,7 @@ export default function AnalyticsPage() {
     showToast('הנתונים אופסו / Analytics reset')
   }
 
-  const staffRevenueToday = staffOrdersToday.reduce((s, o) => s + o.totalPrice, 0)
+  const staffRevenue = staffOrders.reduce((s, o) => s + o.totalPrice, 0)
 
   const KPI = ({ label, labelEn, value, sub, staffLine }: {
     label: string; labelEn: string; value: string; sub?: string; staffLine?: string
@@ -134,7 +136,7 @@ export default function AnalyticsPage() {
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div className="font-body text-sm text-navy/50">
-              {new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              סה״כ כל ההיסטוריה / All-time statistics
             </div>
             {!confirmReset ? (
               <button
@@ -158,10 +160,10 @@ export default function AnalyticsPage() {
 
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <KPI label="הכנסות היום" labelEn="Today's Revenue" value={fmtCurrency(totalRevenue)}
-              staffLine={staffOrdersToday.length > 0 ? `על החשבון: ${fmtCurrency(staffRevenueToday)}` : undefined} />
-            <KPI label="הזמנות היום" labelEn="Today's Orders" value={String(todayOrders.length)}
-              staffLine={staffOrdersToday.length > 0 ? `על החשבון: ${staffOrdersToday.length}` : undefined} />
+            <KPI label="סה״כ הכנסות" labelEn="Total Revenue" value={fmtCurrency(totalRevenue)}
+              staffLine={staffOrders.length > 0 ? `על החשבון: ${fmtCurrency(staffRevenue)}` : undefined} />
+            <KPI label="סה״כ הזמנות" labelEn="Total Orders" value={String(paidOrders.length)}
+              staffLine={staffOrders.length > 0 ? `על החשבון: ${staffOrders.length}` : undefined} />
             <KPI label="ממוצע להזמנה" labelEn="Avg Order Value" value={fmtCurrency(avgOrderValue)} />
             <KPI label="הפריט הפופולרי" labelEn="Most Popular" value={mostPopular} />
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5 space-y-1">
@@ -196,9 +198,9 @@ export default function AnalyticsPage() {
             {/* Top items */}
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5">
               <h3 className="font-display font-bold text-navy mb-1">פריטים פופולריים</h3>
-              <p className="font-body text-xs text-navy/40 mb-4">Top Items Today</p>
+              <p className="font-body text-xs text-navy/40 mb-4">Top Items — All Time</p>
               {topItems.length === 0 ? (
-                <div className="h-52 flex items-center justify-center text-navy/25 font-body text-sm">אין נתונים להיום</div>
+                <div className="h-52 flex items-center justify-center text-navy/25 font-body text-sm">אין נתונים</div>
               ) : (
                 <ResponsiveContainer width="100%" height={topItems.length * 28 + 30}>
                   <BarChart data={topItems} layout="vertical" margin={{ right: 30, left: 0, top: 0, bottom: 0 }}>
@@ -215,9 +217,9 @@ export default function AnalyticsPage() {
             {/* Revenue by category */}
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5">
               <h3 className="font-display font-bold text-navy mb-1">הכנסות לפי קטגוריה</h3>
-              <p className="font-body text-xs text-navy/40 mb-4">Revenue by Category Today</p>
+              <p className="font-body text-xs text-navy/40 mb-4">Revenue by Category — All Time</p>
               {pieData.length === 0 ? (
-                <div className="h-52 flex items-center justify-center text-navy/25 font-body text-sm">אין נתונים להיום</div>
+                <div className="h-52 flex items-center justify-center text-navy/25 font-body text-sm">אין נתונים</div>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
@@ -241,10 +243,10 @@ export default function AnalyticsPage() {
               )}
             </div>
 
-            {/* Orders per hour today */}
+            {/* Orders by hour-of-day (peak hours pattern) */}
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5">
               <h3 className="font-display font-bold text-navy mb-1">הזמנות לפי שעה</h3>
-              <p className="font-body text-xs text-navy/40 mb-4">Orders by Hour (Today)</p>
+              <p className="font-body text-xs text-navy/40 mb-4">Orders by Hour of Day — All Time</p>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={hourlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -259,7 +261,7 @@ export default function AnalyticsPage() {
             {/* Sit vs Take Away by hour */}
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5">
               <h3 className="font-display font-bold text-navy mb-1">ישיבה vs לקחת לפי שעה</h3>
-              <p className="font-body text-xs text-navy/40 mb-4">Sit Down vs Take Away by Hour (Today)</p>
+              <p className="font-body text-xs text-navy/40 mb-4">Sit Down vs Take Away by Hour — All Time</p>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={hourlyData}>
                   <CartesianGrid strokeDasharray="3 3" />

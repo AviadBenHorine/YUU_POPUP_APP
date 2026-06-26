@@ -7,6 +7,7 @@ export type OrderStatus =
   | 'sent_to_kitchen'
   | 'ready'
   | 'cancelled'
+  | 'deleted'
 
 export type OrderType = 'sit_down' | 'take_away'
 
@@ -58,4 +59,7 @@ export interface AppSettings {
   printerEnabled: boolean       // auto-print ticket after each order is taken
   printInHebrew: boolean        // print bon in Hebrew (RTL) instead of English
   quickTags: string[]           // quick-select chips in the item notes modal
+  agingEnabled: boolean         // show order age colours in kitchen/bar
+  agingYellowMins: number       // minutes before card turns yellow
+  agingRedMins: number          // minutes before card turns red
 }

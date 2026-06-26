@@ -14,6 +14,7 @@ const STATUS_LABELS: Record<string, { he: string; en: string; color: string }> =
   sent_to_kitchen: { he: 'במטבח', en: 'In Kitchen', color: 'bg-purple-100 text-purple-700' },
   ready: { he: 'מוכן', en: 'Ready', color: 'bg-green-100 text-green-700' },
   cancelled: { he: 'בוטל', en: 'Cancelled', color: 'bg-red-100 text-red-600' },
+  deleted: { he: 'נמחק', en: 'Deleted', color: 'bg-gray-100 text-gray-500' },
 }
 
 function formatDateTime(iso: string) {
@@ -72,7 +73,7 @@ export default function HistoryPage() {
   // Cancelled orders are included only if they were already sent to kitchen
   const filtered = orders.filter(o => {
     if (o.status === 'cancelled' && !o.sentToKitchenAt) return false
-    if (!['sent_to_kitchen', 'ready', 'cancelled'].includes(o.status)) return false
+    if (!['sent_to_kitchen', 'ready', 'cancelled', 'deleted'].includes(o.status)) return false
     if (filterStatus !== 'all' && o.status !== filterStatus) return false
     if (filterType !== 'all' && o.orderType !== filterType) return false
     if (filterDateFrom && o.createdAt < new Date(filterDateFrom).toISOString()) return false
@@ -124,7 +125,7 @@ export default function HistoryPage() {
                   className="border-2 border-navy/15 rounded-lg px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-gold"
                 >
                   <option value="all">הכל / All</option>
-                  {(['sent_to_kitchen', 'ready', 'cancelled'] as const).map(k => (
+                  {(['sent_to_kitchen', 'ready', 'cancelled', 'deleted'] as const).map(k => (
                     <option key={k} value={k}>{STATUS_LABELS[k].he} / {STATUS_LABELS[k].en}</option>
                   ))}
                 </select>
@@ -245,10 +246,10 @@ export default function HistoryPage() {
                                 <div className="flex-1 min-w-48">
                                   <div className="font-display font-bold text-navy text-sm mb-2">פריטים / Items</div>
                                   <div className="space-y-1">
-                                    {order.items.map(oi => {
+                                    {order.items.map((oi, i) => {
                                       const mi = menuItems.find(m => m.id === oi.menuItemId)
                                       return (
-                                        <div key={oi.menuItemId} className="flex justify-between text-sm font-body">
+                                        <div key={`${oi.menuItemId}-${i}`} className="flex justify-between text-sm font-body">
                                           <span className="text-navy/70">{oi.quantity}× {mi?.nameHe} {mi?.emoji}</span>
                                           <span className="text-navy/50 font-semibold">₪{(mi?.price ?? 0) * oi.quantity}</span>
                                         </div>

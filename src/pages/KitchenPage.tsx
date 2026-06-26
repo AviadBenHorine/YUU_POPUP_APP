@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import TopBar from '../components/TopBar'
 import { useStore } from '../stores/useStore'
+import { printer } from '../services/bluetoothPrinter'
 import type { Order } from '../types'
 
 function elapsed(since: string): string {
@@ -11,17 +12,19 @@ function elapsed(since: string): string {
   return `0:${String(secs).padStart(2, '0')}`
 }
 
-function agingClass(since: string): string {
+function agingClass(since: string, yellowMins: number, redMins: number, enabled: boolean): string {
+  if (!enabled) return 'border-navy/20 bg-white'
   const mins = (Date.now() - new Date(since).getTime()) / 60000
-  if (mins > 10) return 'border-red-400 bg-red-50 urgent-pulse'
-  if (mins > 5)  return 'border-amber-400 bg-amber-50'
+  if (mins > redMins)    return 'border-red-400 bg-red-50 urgent-pulse'
+  if (mins > yellowMins) return 'border-amber-400 bg-amber-50'
   return 'border-navy/20 bg-white'
 }
 
-function agingTextClass(since: string): string {
+function agingTextClass(since: string, yellowMins: number, redMins: number, enabled: boolean): string {
+  if (!enabled) return 'text-navy/50'
   const mins = (Date.now() - new Date(since).getTime()) / 60000
-  if (mins > 10) return 'text-red-500 font-bold'
-  if (mins > 5)  return 'text-amber-600 font-semibold'
+  if (mins > redMins)    return 'text-red-500 font-bold'
+  if (mins > yellowMins) return 'text-amber-600 font-semibold'
   return 'text-navy/50'
 }
 
@@ -29,38 +32,73 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
   const menuItems   = useStore(s => s.menuItems)
   const updateOrder = useStore(s => s.updateOrder)
   const showToast   = useStore(s => s.showToast)
+  const settings    = useStore(s => s.settings)
   const [, tick]    = useState(0)
+
+  const agingOn     = settings.agingEnabled ?? true
+  const yellowMins  = settings.agingYellowMins ?? 5
+  const redMins     = settings.agingRedMins ?? 10
+
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => tick(n => n + 1), 1000)
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    if (!deleteConfirm) return
+    const t = setTimeout(() => setDeleteConfirm(false), 3000)
+    return () => clearTimeout(t)
+  }, [deleteConfirm])
+
   const since = order.sentToKitchenAt ?? order.createdAt
 
   // Kitchen handles food + desserts if dessertTo === 'kitchen'
-  const myItems = order.items.filter(oi => {
-    const mi = menuItems.find(m => m.id === oi.menuItemId)
-    if (!mi) return false
-    if (mi.category === 'food') return true
-    if (mi.category === 'dessert' && dessertTo === 'kitchen') return true
-    return false
-  })
+  // _idx = original position in order.items, used as the checkedItems key
+  const myItems = order.items
+    .map((oi, idx) => ({ ...oi, _idx: idx }))
+    .filter(oi => {
+      const mi = menuItems.find(m => m.id === oi.menuItemId)
+      if (!mi) return false
+      if (mi.category === 'food') return true
+      if (mi.category === 'dessert' && dessertTo === 'kitchen') return true
+      return false
+    })
 
   const checked   = order.checkedItems ?? {}
-  const allMyDone = myItems.length > 0 && myItems.every(oi => checked[oi.menuItemId] === true)
+  const allMyDone = myItems.length > 0 && myItems.every(oi => checked[String(oi._idx)] === true)
 
-  function toggleItem(menuItemId: string) {
-    const current = checked[menuItemId] ?? false
-    updateOrder(order.id, { checkedItems: { ...checked, [menuItemId]: !current } })
+  function toggleItem(idx: number) {
+    const key = String(idx)
+    const current = checked[key] ?? false
+    updateOrder(order.id, { checkedItems: { ...checked, [key]: !current } })
+  }
+
+  function handleDelete() {
+    if (!deleteConfirm) { setDeleteConfirm(true); return }
+    updateOrder(order.id, { status: 'deleted' })
+    showToast('הזמנה נמחקה / Order deleted')
+  }
+
+  function handleSelectAll() {
+    const newChecked = { ...checked }
+    myItems.forEach(oi => { newChecked[String(oi._idx)] = !allMyDone })
+    updateOrder(order.id, { checkedItems: newChecked })
+  }
+
+  function handleReprint() {
+    if (!printer.isConnected) { showToast('מדפסת לא מחוברת / Printer not connected', 'error'); return }
+    printer.enqueuePrint(order, menuItems, settings.printInHebrew ?? false)
+    showToast('שולח להדפסה / Sending to printer...')
   }
 
   function handleDone() {
     const now = new Date().toISOString()
     const newChecked = { ...checked }
-    myItems.forEach(oi => { newChecked[oi.menuItemId] = true })
+    myItems.forEach(oi => { newChecked[String(oi._idx)] = true })
     // Order becomes 'ready' only when BOTH departments are done (or this is the only department)
-    const allDone = order.items.every(oi => newChecked[oi.menuItemId] === true)
+    const allDone = order.items.every((_, idx) => newChecked[String(idx)] === true)
     updateOrder(order.id, {
       checkedItems: newChecked,
       kitchenDoneAt: now,
@@ -69,10 +107,10 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
     showToast(allDone ? 'הזמנה מוכנה ✓ / Order ready' : 'מטבח סיים — ממתין לבר')
   }
 
-  const doneCount = myItems.filter(oi => checked[oi.menuItemId]).length
+  const doneCount = myItems.filter(oi => checked[String(oi._idx)]).length
 
   return (
-    <div className={`rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${agingClass(since)}`}>
+    <div className={`rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${agingClass(since, yellowMins, redMins, agingOn)}`}>
       {/* Header — name first, number secondary */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
@@ -91,24 +129,36 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
             {order.orderType === 'sit_down' ? '🪑 ישיבה' : '🥡 לקחת'}
           </div>
         </div>
-        <div className="text-left shrink-0 mr-2">
-          <div className={`font-display font-bold text-lg tabular-nums ${agingTextClass(since)}`}>{elapsed(since)}</div>
-          <div className="text-navy/30 text-xs mt-0.5">
+        <div className="text-left shrink-0 mr-2 flex flex-col items-end gap-1">
+          <div className={`font-display font-bold text-lg tabular-nums ${agingTextClass(since, yellowMins, redMins, agingOn)}`}>{elapsed(since)}</div>
+          <div className="text-navy/30 text-xs">
             {new Date(since).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
           </div>
+          <button onClick={handleDelete}
+            className={`mt-1 text-xs font-body px-2 py-1 rounded-lg border transition-colors ${deleteConfirm ? 'bg-red-500 text-white border-red-500' : 'text-navy/30 border-navy/15 hover:text-red-500 hover:border-red-300'}`}>
+            {deleteConfirm ? 'מחק? ✕' : '🗑'}
+          </button>
         </div>
       </div>
 
       {/* Checklist */}
+      {myItems.length > 1 && (
+        <div className="flex justify-end mb-1.5">
+          <button onClick={handleSelectAll}
+            className="text-xs font-body text-navy/40 hover:text-navy border border-navy/20 rounded-lg px-2.5 py-1 transition-colors">
+            {allMyDone ? 'בטל הכל ✕' : 'סמן הכל ✓'}
+          </button>
+        </div>
+      )}
       <div className="space-y-2 mb-4">
         {myItems.map(oi => {
           const mi = menuItems.find(m => m.id === oi.menuItemId)
           if (!mi) return null
-          const isDone = checked[oi.menuItemId] === true
+          const isDone = checked[String(oi._idx)] === true
           return (
             <button
-              key={oi.menuItemId}
-              onClick={() => toggleItem(oi.menuItemId)}
+              key={oi._idx}
+              onClick={() => toggleItem(oi._idx)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-right
                 ${isDone ? 'border-green-300 bg-green-50 opacity-70' : 'border-navy/15 bg-white hover:border-navy/30'}`}
             >
@@ -149,6 +199,10 @@ function KitchenCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' 
         className={`w-full py-3.5 rounded-xl font-display font-bold text-base transition-all
           ${allMyDone ? 'bg-green-500 text-white hover:bg-green-600 active:scale-95 shadow-md' : 'bg-navy/10 text-navy/30 cursor-not-allowed'}`}>
         {allMyDone ? 'מוכן ✓ / Done' : `סמן את כל הפריטים (${myItems.length - doneCount} נותרו)`}
+      </button>
+      <button onClick={handleReprint}
+        className="w-full mt-2 py-2 rounded-xl border-2 border-navy/15 text-navy/40 font-body text-sm hover:border-navy/40 hover:text-navy transition-colors flex items-center justify-center gap-1.5">
+        🖨 הדפס שוב / Reprint
       </button>
     </div>
   )

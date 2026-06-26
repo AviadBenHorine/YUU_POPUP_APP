@@ -169,7 +169,7 @@ export default function WaitressPage() {
     !settings.printerEnabled || printer.isConnected
   )
   const [activeItem, setActiveItem]     = useState<MenuItem | null>(null)
-  const [notesModal, setNotesModal]     = useState<{ itemId: string; notes: string } | null>(null)
+  const [notesModal, setNotesModal]     = useState<{ itemIndex: number; notes: string } | null>(null)
   const [cancelModal, setCancelModal]   = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
   const [customerName, setCustomerName] = useState('')
@@ -201,44 +201,41 @@ export default function WaitressPage() {
     if (!over) return
     const item = active.data.current?.item as MenuItem | undefined
     if (over.id === 'order-zone' && item) {
-      const existing = draftItems.find(oi => oi.menuItemId === item.id)
-      const currentQty = existing?.quantity ?? 0
+      const totalQty = draftItems.filter(oi => oi.menuItemId === item.id).reduce((s, oi) => s + oi.quantity, 0)
       const stockQty = settings.stockQuantities[item.id]
-      if (stockQty !== undefined && currentQty >= stockQty) {
+      if (stockQty !== undefined && totalQty >= stockQty) {
         showToast(`${item.nameHe}: רק ${stockQty} במלאי`, 'error')
         return
       }
-      if (existing) {
-        setDraftItems(draftItems.map(oi => oi.menuItemId === item.id ? { ...oi, quantity: oi.quantity + 1 } : oi))
-      } else {
-        setDraftItems([...draftItems, { menuItemId: item.id, quantity: 1 }])
-      }
+      // Always add a new slot — caller can set different notes per slot
+      setDraftItems([...draftItems, { menuItemId: item.id, quantity: 1 }])
     }
   }
 
-  function adjustQty(menuItemId: string, delta: number) {
-    const existing = draftItems.find(oi => oi.menuItemId === menuItemId)
-    if (!existing) return
-    const newQty = existing.quantity + delta
+  function adjustQty(index: number, delta: number) {
+    const oi = draftItems[index]
+    if (!oi) return
+    const newQty = oi.quantity + delta
     if (delta > 0) {
-      const stockQty = settings.stockQuantities[menuItemId]
-      if (stockQty !== undefined && newQty > stockQty) {
-        const mi = menuItems.find(m => m.id === menuItemId)
+      const totalQty = draftItems.reduce((s, o) => s + (o.menuItemId === oi.menuItemId ? o.quantity : 0), 0)
+      const stockQty = settings.stockQuantities[oi.menuItemId]
+      if (stockQty !== undefined && totalQty >= stockQty) {
+        const mi = menuItems.find(m => m.id === oi.menuItemId)
         showToast(`${mi?.nameHe ?? ''}: רק ${stockQty} במלאי`, 'error')
         return
       }
     }
     if (newQty <= 0) {
-      setDraftItems(draftItems.filter(oi => oi.menuItemId !== menuItemId))
+      setDraftItems(draftItems.filter((_, i) => i !== index))
     } else {
-      setDraftItems(draftItems.map(oi => oi.menuItemId === menuItemId ? { ...oi, quantity: newQty } : oi))
+      setDraftItems(draftItems.map((o, i) => i === index ? { ...o, quantity: newQty } : o))
     }
   }
 
   function saveNotes(notes: string) {
     if (!notesModal) return
-    setDraftItems(draftItems.map(oi =>
-      oi.menuItemId === notesModal.itemId ? { ...oi, notes: notes || undefined } : oi
+    setDraftItems(draftItems.map((oi, i) =>
+      i === notesModal.itemIndex ? { ...oi, notes: notes || undefined } : oi
     ))
     setNotesModal(null)
   }
@@ -312,7 +309,7 @@ export default function WaitressPage() {
                     key={item.id}
                     item={item}
                     stockRemaining={settings.stockQuantities[item.id]}
-                    draftQty={draftItems.find(oi => oi.menuItemId === item.id)?.quantity ?? 0}
+                    draftQty={draftItems.filter(oi => oi.menuItemId === item.id).reduce((s, oi) => s + oi.quantity, 0)}
                   />
                 ))
               )}
@@ -373,11 +370,14 @@ export default function WaitressPage() {
                 </div>
               ) : (
                 <div className="p-3 space-y-2">
-                  {draftItems.map(oi => {
+                  {draftItems.map((oi, i) => {
                     const mi = menuItems.find(m => m.id === oi.menuItemId)
                     if (!mi) return null
+                    const totalQty = draftItems.filter(o => o.menuItemId === oi.menuItemId).reduce((s, o) => s + o.quantity, 0)
+                    const stockQty = settings.stockQuantities[oi.menuItemId]
+                    const atStockLimit = stockQty !== undefined && totalQty >= stockQty
                     return (
-                      <div key={oi.menuItemId}
+                      <div key={`${oi.menuItemId}-${i}`}
                         className="bg-white rounded-xl border-2 border-navy/10 p-3 flex items-center gap-3"
                       >
                         <span className="text-xl">{mi.emoji}</span>
@@ -393,32 +393,24 @@ export default function WaitressPage() {
                         <button
                           onPointerDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
-                          onClick={() => setNotesModal({ itemId: oi.menuItemId, notes: oi.notes ?? '' })}
+                          onClick={() => setNotesModal({ itemIndex: i, notes: oi.notes ?? '' })}
                           className="text-navy/40 hover:text-navy/70 text-base transition-colors w-8 h-8 flex items-center justify-center shrink-0"
                         >✏️</button>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onPointerDown={e => e.stopPropagation()}
                             onTouchStart={e => e.stopPropagation()}
-                            onClick={() => adjustQty(oi.menuItemId, -1)}
+                            onClick={() => adjustQty(i, -1)}
                             className="w-8 h-8 rounded-full bg-navy/10 hover:bg-navy/20 text-navy font-bold text-lg flex items-center justify-center transition-colors"
                           >−</button>
                           <span className="font-display font-bold text-navy w-6 text-center">{oi.quantity}</span>
                           <button
                             onPointerDown={e => e.stopPropagation()}
                             onTouchStart={e => e.stopPropagation()}
-                            onClick={() => adjustQty(oi.menuItemId, 1)}
-                            disabled={(() => {
-                              const stock = settings.stockQuantities[oi.menuItemId]
-                              return stock !== undefined && oi.quantity >= stock
-                            })()}
+                            onClick={() => adjustQty(i, 1)}
+                            disabled={atStockLimit}
                             className={`w-8 h-8 rounded-full font-bold text-lg flex items-center justify-center transition-colors
-                              ${(() => {
-                                const stock = settings.stockQuantities[oi.menuItemId]
-                                return stock !== undefined && oi.quantity >= stock
-                                  ? 'bg-red-100 text-red-300 cursor-not-allowed'
-                                  : 'bg-navy/10 hover:bg-navy/20 text-navy'
-                              })()}`}
+                              ${atStockLimit ? 'bg-red-100 text-red-300 cursor-not-allowed' : 'bg-navy/10 hover:bg-navy/20 text-navy'}`}
                           >+</button>
                         </div>
                       </div>

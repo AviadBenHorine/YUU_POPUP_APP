@@ -514,6 +514,53 @@ export default function SettingsPage() {
             </div>
           </Section>
 
+          {/* Order Aging */}
+          <Section title="ישנון הזמנות" titleEn="Order Age Colours">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-body text-sm text-navy">הצבעת גיל הזמנות / Order age colours</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  כרטיסיות במטבח/בר משנות צבע לפי זמן המתנה
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettings({ agingEnabled: !(settings.agingEnabled ?? true) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.agingEnabled ?? true) ? 'bg-green-500' : 'bg-navy/20'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.agingEnabled ?? true) ? 'right-1' : 'left-1'}`} />
+              </button>
+            </div>
+
+            {(settings.agingEnabled ?? true) && (
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-navy/8">
+                <div>
+                  <label className="font-body text-xs text-amber-700 block mb-1">⚠ צהוב אחרי (דקות) / Yellow after (min)</label>
+                  <input
+                    type="number" min="1" max="120"
+                    value={settings.agingYellowMins ?? 5}
+                    onChange={e => {
+                      const v = parseInt(e.target.value)
+                      if (!isNaN(v) && v >= 1) updateSettings({ agingYellowMins: v })
+                    }}
+                    className="w-full border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="font-body text-xs text-red-600 block mb-1">🔴 אדום אחרי (דקות) / Red after (min)</label>
+                  <input
+                    type="number" min="1" max="240"
+                    value={settings.agingRedMins ?? 10}
+                    onChange={e => {
+                      const v = parseInt(e.target.value)
+                      if (!isNaN(v) && v >= 1) updateSettings({ agingRedMins: v })
+                    }}
+                    className="w-full border-2 border-red-200 rounded-xl px-3 py-2 text-sm font-body text-navy bg-cream focus:outline-none focus:border-red-400"
+                  />
+                </div>
+              </div>
+            )}
+          </Section>
+
           {/* PINs */}
           <Section title="ניהול PINים" titleEn="PIN Management">
             {(Object.keys(ROLE_LABELS) as Role[]).map(role => (

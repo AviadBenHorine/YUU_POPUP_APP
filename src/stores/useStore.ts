@@ -21,6 +21,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   printerEnabled: false,
   printInHebrew: false,
   quickTags: ['ללא חלב', 'לא חריף', 'ללא כוסברה', 'ללא גלוטן', 'ללא בצל', 'ללא שום', 'ללא אגוזים', 'טבעוני'],
+  agingEnabled: true,
+  agingYellowMins: 5,
+  agingRedMins: 10,
 }
 
 function loadOrders(): Order[] {

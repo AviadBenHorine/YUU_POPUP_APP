@@ -119,11 +119,11 @@ export default function PaymentPage() {
               <div className="font-display font-black text-gold text-4xl">₪{order.totalPrice}</div>
             </div>
             <div className="border-t border-navy/10 pt-3 space-y-1">
-              {order.items.map(oi => {
+              {order.items.map((oi, i) => {
                 const mi = menuItems.find(m => m.id === oi.menuItemId)
                 if (!mi) return null
                 return (
-                  <div key={oi.menuItemId} className="flex justify-between text-sm font-body">
+                  <div key={`${oi.menuItemId}-${i}`} className="flex justify-between text-sm font-body">
                     <span className="text-navy/70">{oi.quantity}× {mi.nameHe}</span>
                     <span className="text-navy/50">₪{mi.price * oi.quantity}</span>
                   </div>
@@ -273,11 +273,11 @@ export default function PaymentPage() {
                   <div className="mt-3 font-body font-semibold text-navy text-lg">{order.customerName}</div>
                 )}
                 <div className="mt-5 border-t-2 border-navy/10 pt-4 space-y-1.5">
-                  {order.items.map(oi => {
+                  {order.items.map((oi, i) => {
                     const mi = menuItems.find(m => m.id === oi.menuItemId)
                     if (!mi) return null
                     return (
-                      <div key={oi.menuItemId} className="flex justify-between text-sm font-body">
+                      <div key={`${oi.menuItemId}-${i}`} className="flex justify-between text-sm font-body">
                         <span className="text-navy/50">₪{mi.price * oi.quantity}</span>
                         <span className="text-navy/70">{oi.quantity}× {mi.nameHe}</span>
                       </div>
