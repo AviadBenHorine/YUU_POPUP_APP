@@ -67,11 +67,6 @@ function saveOrders(orders: Order[])  { localStorage.setItem(LS_ORDERS,   JSON.s
 function saveMenu(menu: MenuItem[])   { localStorage.setItem(LS_MENU,     JSON.stringify(menu))   }
 function saveSettings(s: AppSettings) { localStorage.setItem(LS_SETTINGS, JSON.stringify(s))      }
 
-function nextOrderId(orders: Order[]): string {
-  const nums = orders.map(o => parseInt(o.id.replace('YUU-', ''), 10)).filter(n => !isNaN(n))
-  const max  = nums.length > 0 ? Math.max(...nums) : 0
-  return `YUU-${String(max + 1).padStart(4, '0')}`
-}
 
 interface AppState {
   currentRole: Role | null
