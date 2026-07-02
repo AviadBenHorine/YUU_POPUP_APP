@@ -80,7 +80,7 @@ interface AppState {
   _setMenuFromRemote:     (items: MenuItem[]) => void
 
   orders: Order[]
-  createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Promise<Order>
+  createOrder:          (type: OrderType, items: OrderItem[], customerName?: string, customerPhone?: string) => Promise<Order>
   updateOrder:          (id: string, patch: Partial<Order>) => void
   removeOrder:          (id: string) => void
   refreshOrders:        () => void
@@ -131,7 +131,7 @@ export const useStore = create<AppState>((set, get) => {
 
     // ── Orders ───────────────────────────────────────────────────────────────
     orders: loadOrders(),
-    async createOrder(type, items, customerName) {
+    async createOrder(type, items, customerName, customerPhone) {
       const currentOrders = get().orders
       const totalPrice = items.reduce((sum, oi) => {
         const mi = get().menuItems.find(m => m.id === oi.menuItemId)
@@ -149,6 +149,7 @@ export const useStore = create<AppState>((set, get) => {
         createdAt: new Date().toISOString(),
         paymentMethod: 'bit',
         customerName: customerName?.trim() || undefined,
+        customerPhone: customerPhone?.trim() || undefined,
       }
       const updated = [...currentOrders, order]
       saveOrders(updated); set({ orders: updated })

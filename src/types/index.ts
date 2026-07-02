@@ -46,6 +46,8 @@ export interface Order {
   kitchenDoneAt?: string   // set when kitchen clicks Done
   barDoneAt?: string       // set when bar clicks Done
   priority?: boolean       // pinned to top of kitchen/bar queue
+  customerPhone?: string   // optional — triggers SMS when order becomes ready
+  smsSentAt?: string       // set by Cloud Function after SMS is dispatched
 }
 
 export interface EventSnapshot {

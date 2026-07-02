@@ -176,6 +176,7 @@ export default function WaitressPage() {
   const [orderCommentOpen, setOrderCommentOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<MenuCategory>('food')
   const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
 
   // Always default to sit_down — never leave type unset
   useEffect(() => {
@@ -254,8 +255,9 @@ export default function WaitressPage() {
             notes: oi.notes ? `${comment} | ${oi.notes}` : comment,
           }))
         : draftItems
-      const order = await createOrder(draftType ?? 'sit_down', items, customerName)
+      const order = await createOrder(draftType ?? 'sit_down', items, customerName, customerPhone)
       setCustomerName('')
+      setCustomerPhone('')
       setOrderComment('')
       clearDraft()
       navigate(`/payment/${order.id}`)
@@ -269,6 +271,7 @@ export default function WaitressPage() {
   function handleCancel() {
     clearDraft()
     setOrderComment('')
+    setCustomerPhone('')
     setCancelModal(false)
     showToast('ההזמנה בוטלה / Order cancelled', 'error')
   }
@@ -424,6 +427,14 @@ export default function WaitressPage() {
                   className={`w-full bg-cream/60 border-2 rounded-xl px-3 py-2 font-body text-sm focus:outline-none focus:border-gold transition-colors ${
                     customerName.trim() ? 'border-navy/20 text-navy' : 'border-navy/10 text-navy placeholder-navy/35'
                   }`}
+                />
+                <input
+                  type="tel"
+                  dir="ltr"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
+                  placeholder="📱 05X-XXX-XXXX — SMS כשמוכן"
+                  className="w-full bg-cream/60 border-2 border-navy/10 rounded-xl px-3 py-2 font-body text-sm text-navy placeholder-navy/30 focus:outline-none focus:border-gold transition-colors"
                 />
                 <button
                   type="button"
