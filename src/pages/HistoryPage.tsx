@@ -3,7 +3,7 @@ import React from 'react'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import { useStore } from '../stores/useStore'
-import type { Order } from '../types'
+import type { Order, OrderType } from '../types'
 import type { MenuItem } from '../types'
 import { getImage } from '../services/imageDB'
 
@@ -56,6 +56,9 @@ function downloadCSV(orders: Order[], menuItems: MenuItem[]) {
 export default function HistoryPage() {
   const orders = useStore(s => s.orders)
   const menuItems = useStore(s => s.menuItems)
+  const removeOrder = useStore(s => s.removeOrder)
+  const updateOrder = useStore(s => s.updateOrder)
+  const showToast = useStore(s => s.showToast)
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
@@ -68,6 +71,8 @@ export default function HistoryPage() {
   const [filterDateTo, setFilterDateTo] = useState('')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 15
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [editModal, setEditModal] = useState<{ order: Order; customerName: string; orderType: OrderType } | null>(null)
 
   // Only show orders that completed the payment flow (sentToKitchenAt is the reliable signal)
   const filtered = orders.filter(o => {
@@ -89,6 +94,23 @@ export default function HistoryPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   useEffect(() => { setPage(1) }, [filterStatus, filterType, filterPayment, filterDateFrom, filterDateTo])
+
+  function handleDelete(id: string) {
+    removeOrder(id)
+    setDeleteConfirmId(null)
+    setExpandedId(null)
+    showToast('ההזמנה נמחקה / Order deleted')
+  }
+
+  function handleSaveEdit() {
+    if (!editModal) return
+    updateOrder(editModal.order.id, {
+      customerName: editModal.customerName.trim() || undefined,
+      orderType: editModal.orderType,
+    })
+    setEditModal(null)
+    showToast('ההזמנה עודכנה / Order updated')
+  }
 
   async function handleExpand(order: Order) {
     // Revoke previous object URL to prevent memory leak
@@ -268,6 +290,38 @@ export default function HistoryPage() {
                                   </div>
                                 )}
                               </div>
+                              <div className="flex gap-2 mt-3 pt-3 border-t border-navy/10">
+                                <button
+                                  onClick={() => setEditModal({ order, customerName: order.customerName ?? '', orderType: order.orderType })}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-navy/15 text-navy/60 text-xs font-body hover:border-gold hover:text-gold transition-colors"
+                                >
+                                  ✏️ עריכה / Edit
+                                </button>
+                                {deleteConfirmId === order.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-body text-red-500">מחיקה סופית? / Confirm delete?</span>
+                                    <button
+                                      onClick={() => handleDelete(order.id)}
+                                      className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-body hover:bg-red-600 transition-colors"
+                                    >
+                                      מחק / Delete
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirmId(null)}
+                                      className="px-3 py-1.5 rounded-lg border-2 border-navy/15 text-navy/60 text-xs font-body hover:border-navy/40 transition-colors"
+                                    >
+                                      ביטול / Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDeleteConfirmId(order.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-red-200 text-red-500 text-xs font-body hover:bg-red-50 transition-colors"
+                                  >
+                                    🗑️ מחיקה / Delete
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         )}
@@ -301,6 +355,50 @@ export default function HistoryPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Order Modal */}
+      <Modal open={!!editModal} onClose={() => setEditModal(null)} title="עריכת הזמנה / Edit Order">
+        {editModal && (
+          <div className="space-y-4">
+            <div>
+              <label className="font-body text-sm text-navy/70 block mb-1">שם לקוח / Customer name</label>
+              <input
+                type="text"
+                value={editModal.customerName}
+                onChange={e => setEditModal(m => m ? { ...m, customerName: e.target.value } : m)}
+                placeholder="ללא שם / No name"
+                className="w-full border-2 border-navy/15 rounded-xl px-3 py-2 font-body text-navy bg-cream focus:outline-none focus:border-gold"
+                dir="rtl"
+              />
+            </div>
+            <div>
+              <div className="font-body text-sm text-navy/70 mb-2">סוג הזמנה / Order type</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModal(m => m ? { ...m, orderType: 'sit_down' } : m)}
+                  className={`flex-1 py-2 rounded-xl border-2 font-body text-sm transition-all ${editModal.orderType === 'sit_down' ? 'border-gold bg-gold/10 text-navy' : 'border-navy/15 text-navy/50 hover:border-navy/30'}`}
+                >
+                  🪑 ישיבה / Sit Down
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditModal(m => m ? { ...m, orderType: 'take_away' } : m)}
+                  className={`flex-1 py-2 rounded-xl border-2 font-body text-sm transition-all ${editModal.orderType === 'take_away' ? 'border-gold bg-gold/10 text-navy' : 'border-navy/15 text-navy/50 hover:border-navy/30'}`}
+                >
+                  🥡 לקחת / Take Away
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={handleSaveEdit}
+              className="w-full py-3 bg-navy text-cream rounded-xl font-body font-semibold hover:bg-navy/80 transition-colors"
+            >
+              שמור / Save
+            </button>
+          </div>
+        )}
+      </Modal>
 
       {/* Lightbox */}
       <Modal open={!!lightboxUrl} onClose={() => setLightboxUrl(null)} title="אישור תשלום" maxWidth="max-w-2xl">
