@@ -406,13 +406,42 @@ export default function KitchenPage() {
           </div>
         ) : (
           <div className="max-w-5xl mx-auto">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3">
               <span className="w-3 h-3 rounded-full bg-navy" />
               <h2 className="font-display font-bold text-navy text-lg">
                 {activeOrders.length} הזמנות פתוחות
                 <span className="font-body font-normal text-navy/40 text-xs mr-2">/ open orders</span>
               </h2>
             </div>
+            {/* Item summary */}
+            {(() => {
+              const totals: Record<string, number> = {}
+              for (const order of activeOrders) {
+                for (const oi of order.items) {
+                  const mi = menuItems.find(m => m.id === oi.menuItemId)
+                  if (mi && isKitchenItem(mi.category)) {
+                    totals[oi.menuItemId] = (totals[oi.menuItemId] ?? 0) + oi.quantity
+                  }
+                }
+              }
+              const entries = Object.entries(totals).sort((a, b) => b[1] - a[1])
+              if (entries.length === 0) return null
+              return (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {entries.map(([id, qty]) => {
+                    const mi = menuItems.find(m => m.id === id)
+                    if (!mi) return null
+                    return (
+                      <div key={id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-navy/15 rounded-full font-body text-sm text-navy">
+                        {mi.emoji && <span>{mi.emoji}</span>}
+                        <span className="font-semibold">{mi.nameHe}</span>
+                        <span className="font-display font-black text-gold text-base leading-none">×{qty}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeOrders.map(order => <KitchenCard key={order.id} order={order} dessertTo={dessertTo} />)}
             </div>
