@@ -564,6 +564,26 @@ export default function SettingsPage() {
             )}
           </Section>
 
+          {/* SMS notifications */}
+          <Section title="הודעות SMS" titleEn="SMS Notifications">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-body text-sm text-navy">SMS כשהזמנה מוכנה / SMS when order is ready</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  {(settings.smsEnabled ?? true)
+                    ? 'מופעל — לקוח מקבל SMS כשמוכן'
+                    : 'כבוי — ללא הודעות SMS'}
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettings({ smsEnabled: !(settings.smsEnabled ?? true) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.smsEnabled ?? true) ? 'bg-green-500' : 'bg-navy/20'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.smsEnabled ?? true) ? 'right-1' : 'left-1'}`} />
+              </button>
+            </div>
+          </Section>
+
           {/* Bell sound */}
           <Section title="צליל התראה" titleEn="Order Bell">
             <div className="flex items-center justify-between">

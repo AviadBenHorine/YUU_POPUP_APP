@@ -428,14 +428,16 @@ export default function WaitressPage() {
                     customerName.trim() ? 'border-navy/20 text-navy' : 'border-navy/10 text-navy placeholder-navy/35'
                   }`}
                 />
-                <input
-                  type="tel"
-                  dir="ltr"
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                  placeholder="📱 05X-XXX-XXXX — SMS כשמוכן"
-                  className="w-full bg-cream/60 border-2 border-navy/10 rounded-xl px-3 py-2 font-body text-sm text-navy placeholder-navy/30 focus:outline-none focus:border-gold transition-colors"
-                />
+                {(settings.smsEnabled ?? true) && (
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    placeholder="📱 05X-XXX-XXXX — SMS כשמוכן"
+                    className="w-full bg-cream/60 border-2 border-navy/10 rounded-xl px-3 py-2 font-body text-sm text-navy placeholder-navy/30 focus:outline-none focus:border-gold transition-colors"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setOrderCommentOpen(true)}

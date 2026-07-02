@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   agingYellowMins: 5,
   agingRedMins: 10,
   bellEnabled: true,
+  smsEnabled: true,
 }
 
 function loadOrders(): Order[] {

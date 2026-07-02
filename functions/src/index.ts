@@ -37,6 +37,10 @@ export const notifyOrderReady = onDocumentUpdated(
     if (after.status  !== 'ready') return
     if (after.smsSentAt) return              // already sent — dedup guard
 
+    // Respect the global SMS toggle stored in app settings
+    const settingsSnap = await admin.firestore().doc('app/settings').get()
+    if (settingsSnap.exists && settingsSnap.data()?.smsEnabled === false) return
+
     const phone = after.customerPhone as string | undefined
     if (!phone) return                       // no phone provided — nothing to do
 

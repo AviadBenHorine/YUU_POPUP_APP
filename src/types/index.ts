@@ -76,4 +76,5 @@ export interface AppSettings {
   agingYellowMins: number       // minutes before card turns yellow
   agingRedMins: number          // minutes before card turns red
   bellEnabled: boolean          // play bell sound on new order in kitchen/bar
+  smsEnabled: boolean           // send SMS to customer when order is ready
 }
