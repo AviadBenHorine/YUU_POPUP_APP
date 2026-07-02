@@ -25,25 +25,77 @@ function formatDateTime(iso: string) {
 }
 
 function downloadCSV(orders: Order[], menuItems: MenuItem[]) {
-  const rows = [
-    ['Order #', 'Type', 'Date', 'Items', 'Total (₪)', 'Status', 'Paid At'],
+  function prepMins(from?: string, to?: string): string {
+    if (!from || !to) return ''
+    const mins = (new Date(to).getTime() - new Date(from).getTime()) / 60000
+    return (mins > 0 && mins < 180) ? String(Math.round(mins)) : ''
+  }
+
+  const headers = [
+    'מס׳ הזמנה / Order #',
+    'שם לקוח / Customer Name',
+    'סוג הזמנה / Order Type',
+    'שיטת תשלום / Payment Method',
+    'סה"כ (₪) / Total (₪)',
+    'כמות פריטים / Total Units',
+    'פריטים / Items (qty × name — price)',
+    'סטטוס / Status',
+    'תאריך יצירה / Created At',
+    'נשלח למטבח / Sent to Kitchen',
+    'שולם / Paid At',
+    'מטבח סיים / Kitchen Done At',
+    'בר סיים / Bar Done At',
+    'זמן הכנה מטבח (דק׳) / Kitchen Prep Time (min)',
+    'זמן הכנה בר (דק׳) / Bar Prep Time (min)',
   ]
+
+  const rows: string[][] = [headers]
+
   for (const o of orders) {
-    const items = o.items.map(oi => {
-      const mi = menuItems.find(m => m.id === oi.menuItemId)
-      return `${oi.quantity}x ${mi?.name ?? oi.menuItemId}`
-    }).join('; ')
+    const itemList = o.items
+      .map(oi => {
+        const mi = menuItems.find(m => m.id === oi.menuItemId)
+        const lineTotal = (mi?.price ?? 0) * oi.quantity
+        return `${oi.quantity}× ${mi?.nameHe ?? oi.menuItemId} (₪${lineTotal})`
+      })
+      .join(' | ')
+
+    const totalUnits = o.items.reduce((s, oi) => s + oi.quantity, 0)
+
     rows.push([
       o.id,
-      o.orderType === 'sit_down' ? 'Sit Down' : 'Take Away',
-      formatDateTime(o.createdAt),
-      items,
+      o.customerName ?? '',
+      o.orderType === 'sit_down' ? 'ישיבה / Sit Down' : 'לקחת / Take Away',
+      o.paymentMethod === 'bit' ? 'Bit' : 'על החשבון / On the House',
       String(o.totalPrice),
-      STATUS_LABELS[o.status]?.en ?? o.status,
+      String(totalUnits),
+      itemList,
+      `${STATUS_LABELS[o.status]?.he ?? o.status} / ${STATUS_LABELS[o.status]?.en ?? o.status}`,
+      formatDateTime(o.createdAt),
+      o.sentToKitchenAt ? formatDateTime(o.sentToKitchenAt) : '',
       o.paidAt ? formatDateTime(o.paidAt) : '',
+      o.kitchenDoneAt ? formatDateTime(o.kitchenDoneAt) : '',
+      o.barDoneAt ? formatDateTime(o.barDoneAt) : '',
+      prepMins(o.sentToKitchenAt, o.kitchenDoneAt),
+      prepMins(o.sentToKitchenAt, o.barDoneAt),
     ])
   }
-  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+
+  // Summary block
+  const paidRevenue = orders.filter(o => o.paymentMethod !== 'staff').reduce((s, o) => s + o.totalPrice, 0)
+  const staffCount = orders.filter(o => o.paymentMethod === 'staff').length
+  const totalUnitsAll = orders.reduce((s, o) => s + o.items.reduce((q, oi) => q + oi.quantity, 0), 0)
+  const exportedAt = new Date().toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  rows.push([])
+  rows.push(['סיכום / Summary'])
+  rows.push([`יוצא בתאריך / Exported at: ${exportedAt}`])
+  rows.push([`סה"כ הזמנות בייצוא / Total orders in export: ${orders.length}`])
+  rows.push([`סה"כ הכנסות (Bit בלבד) / Total revenue (Bit only): ₪${paidRevenue.toLocaleString()}`])
+  rows.push([`הזמנות על החשבון / On-the-house orders: ${staffCount}`])
+  rows.push([`סה"כ פריטים שנמכרו / Total units sold: ${totalUnitsAll}`])
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
