@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import TopBar from '../components/TopBar'
 import { useStore } from '../stores/useStore'
 import { printer } from '../services/bluetoothPrinter'
+import { playBell } from '../lib/bell'
 import type { Order } from '../types'
 
 function elapsed(since: string): string {
@@ -334,6 +335,14 @@ export default function KitchenPage() {
     .sort((a, b) => new Date(b.readyAt ?? b.kitchenDoneAt ?? '').getTime() - new Date(a.readyAt ?? a.kitchenDoneAt ?? '').getTime())
 
   const stockItems = menuItems.filter(m => isKitchenItem(m.category))
+
+  const prevKitchenCountRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (prevKitchenCountRef.current !== null && activeOrders.length > prevKitchenCountRef.current && (settings.bellEnabled ?? true)) {
+      playBell()
+    }
+    prevKitchenCountRef.current = activeOrders.length
+  }, [activeOrders.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="h-dvh flex flex-col bg-cream overflow-hidden">

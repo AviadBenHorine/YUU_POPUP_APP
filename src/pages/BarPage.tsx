@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import TopBar from '../components/TopBar'
 import { useStore } from '../stores/useStore'
 import { printer } from '../services/bluetoothPrinter'
+import { playBell } from '../lib/bell'
 import type { Order } from '../types'
 
 function elapsed(since: string): string {
@@ -329,6 +330,14 @@ export default function BarPage() {
     .sort((a, b) => new Date(b.readyAt ?? b.barDoneAt ?? '').getTime() - new Date(a.readyAt ?? a.barDoneAt ?? '').getTime())
 
   const stockItems = menuItems.filter(m => isBarItem(m.category))
+
+  const prevBarCountRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (prevBarCountRef.current !== null && activeOrders.length > prevBarCountRef.current && (settings.bellEnabled ?? true)) {
+      playBell()
+    }
+    prevBarCountRef.current = activeOrders.length
+  }, [activeOrders.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="h-dvh flex flex-col bg-cream overflow-hidden">

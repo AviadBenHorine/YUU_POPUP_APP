@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   agingEnabled: true,
   agingYellowMins: 5,
   agingRedMins: 10,
+  bellEnabled: true,
 }
 
 function loadOrders(): Order[] {

@@ -564,6 +564,26 @@ export default function SettingsPage() {
             )}
           </Section>
 
+          {/* Bell sound */}
+          <Section title="צליל התראה" titleEn="Order Bell">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-body text-sm text-navy">צליל הזמנה חדשה / New order bell</div>
+                <div className="font-body text-xs text-navy/40 mt-0.5">
+                  {(settings.bellEnabled ?? true)
+                    ? 'מופעל — מצלצל בכל הזמנה חדשה במטבח/בר'
+                    : 'כבוי — ללא צליל'}
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettings({ bellEnabled: !(settings.bellEnabled ?? true) })}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${(settings.bellEnabled ?? true) ? 'bg-green-500' : 'bg-navy/20'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-1 shadow transition-all duration-200 ${(settings.bellEnabled ?? true) ? 'right-1' : 'left-1'}`} />
+              </button>
+            </div>
+          </Section>
+
           {/* PINs */}
           <Section title="ניהול PINים" titleEn="PIN Management">
             {(Object.keys(ROLE_LABELS) as Role[]).map(role => (

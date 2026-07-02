@@ -63,4 +63,5 @@ export interface AppSettings {
   agingEnabled: boolean         // show order age colours in kitchen/bar
   agingYellowMins: number       // minutes before card turns yellow
   agingRedMins: number          // minutes before card turns red
+  bellEnabled: boolean          // play bell sound on new order in kitchen/bar
 }
