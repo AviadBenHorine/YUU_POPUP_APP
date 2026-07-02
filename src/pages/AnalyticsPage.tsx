@@ -9,6 +9,10 @@ import { useStore } from '../stores/useStore'
 const COLORS = ['#1A2340', '#C8A96E', '#4B6380']
 
 function fmtCurrency(n: number) { return `₪${n.toLocaleString()}` }
+function fmtMins(mins: number | null): string {
+  if (mins === null) return '—'
+  return `${Math.round(mins)}′`
+}
 
 export default function AnalyticsPage() {
   const orders = useStore(s => s.orders)
@@ -39,6 +43,7 @@ export default function AnalyticsPage() {
   // KPIs — all-time
   const totalRevenue = paidOrders.reduce((s, o) => s + o.totalPrice, 0)
   const avgOrderValue = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0
+  const staffRevenue = staffOrders.reduce((s, o) => s + o.totalPrice, 0)
 
   const itemCounts: Record<string, number> = {}
   for (const o of paidOrders) {
@@ -49,13 +54,60 @@ export default function AnalyticsPage() {
   const topItems = Object.entries(itemCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .map(([id, qty]) => ({ name: menuItems.find(m => m.id === id)?.nameHe ?? id, qty }))
+    .map(([id, qty]) => {
+      const mi = menuItems.find(m => m.id === id)
+      return { name: mi?.nameHe ?? id, emoji: mi?.emoji ?? '', qty }
+    })
 
   const mostPopular = topItems[0]?.name ?? '—'
 
   const sitDownCount = paidOrders.filter(o => o.orderType === 'sit_down').length
   const takeAwayCount = paidOrders.filter(o => o.orderType === 'take_away').length
   const totalCount = sitDownCount + takeAwayCount
+
+  // Avg items per order (total units, not line items)
+  const totalItemQty = paidOrders.reduce((s, o) => s + o.items.reduce((q, oi) => q + oi.quantity, 0), 0)
+  const avgItemsPerOrder = paidOrders.length > 0 ? (totalItemQty / paidOrders.length).toFixed(1) : '—'
+
+  // Service times: kitchenDoneAt / barDoneAt relative to sentToKitchenAt
+  const serviceStats = useMemo(() => {
+    const kitchenTimes: number[] = []
+    const barTimes: number[] = []
+    for (const o of orders) {
+      if (!o.sentToKitchenAt) continue
+      const sentMs = new Date(o.sentToKitchenAt).getTime()
+      if (o.kitchenDoneAt) {
+        const mins = (new Date(o.kitchenDoneAt).getTime() - sentMs) / 60000
+        if (mins > 0 && mins < 180) kitchenTimes.push(mins)
+      }
+      if (o.barDoneAt) {
+        const mins = (new Date(o.barDoneAt).getTime() - sentMs) / 60000
+        if (mins > 0 && mins < 180) barTimes.push(mins)
+      }
+    }
+    const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null
+    return {
+      kitchenAvg: avg(kitchenTimes),
+      kitchenMax: kitchenTimes.length ? Math.max(...kitchenTimes) : null,
+      kitchenCount: kitchenTimes.length,
+      barAvg: avg(barTimes),
+      barMax: barTimes.length ? Math.max(...barTimes) : null,
+      barCount: barTimes.length,
+    }
+  }, [orders])
+
+  // Peak hour
+  const peakHour = useMemo(() => {
+    const counts: Record<number, number> = {}
+    for (const o of paidOrders) {
+      const h = new Date(o.createdAt).getHours()
+      counts[h] = (counts[h] ?? 0) + 1
+    }
+    const entries = Object.entries(counts)
+    if (!entries.length) return null
+    const [h, count] = entries.sort((a, b) => Number(b[1]) - Number(a[1]))[0]
+    return { hour: `${h}:00`, count: Number(count) }
+  }, [paidOrders])
 
   // Hourly pattern — aggregate by hour-of-day across all history (shows peak hours)
   const hourlyData = useMemo(() => {
@@ -102,6 +154,21 @@ export default function AnalyticsPage() {
     { name: 'קינוחים / Desserts', value: catRevenue.dessert },
   ].filter(d => d.value > 0)
 
+  // Daily revenue trend
+  const dailyData = useMemo(() => {
+    const byDay: Record<string, number> = {}
+    for (const o of paidOrders) {
+      const day = o.createdAt.slice(0, 10)
+      byDay[day] = (byDay[day] ?? 0) + o.totalPrice
+    }
+    return Object.entries(byDay)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, revenue]) => ({
+        date: new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }),
+        revenue,
+      }))
+  }, [paidOrders])
+
   async function handleReset() {
     setResetting(true)
     try {
@@ -114,8 +181,6 @@ export default function AnalyticsPage() {
       setResetting(false)
     }
   }
-
-  const staffRevenue = staffOrders.reduce((s, o) => s + o.totalPrice, 0)
 
   const KPI = ({ label, labelEn, value, sub, staffLine }: {
     label: string; labelEn: string; value: string; sub?: string; staffLine?: string
@@ -167,7 +232,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* KPIs */}
+          {/* KPIs — revenue / orders */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <KPI label="סה״כ הכנסות" labelEn="Total Revenue" value={fmtCurrency(totalRevenue)}
               staffLine={staffOrders.length > 0 ? `על החשבון: ${fmtCurrency(staffRevenue)}` : undefined} />
@@ -201,25 +266,71 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          {/* KPIs — service times */}
+          <div>
+            <div className="font-body text-xs text-navy/40 uppercase tracking-wider mb-3">זמני שירות / Service Times</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <KPI
+                label="ממוצע מטבח"
+                labelEn={serviceStats.kitchenCount > 0 ? `Kitchen Avg (${serviceStats.kitchenCount})` : 'Kitchen Avg'}
+                value={fmtMins(serviceStats.kitchenAvg)}
+              />
+              <KPI
+                label="ארוך ביותר מטבח"
+                labelEn="Kitchen Longest"
+                value={fmtMins(serviceStats.kitchenMax)}
+              />
+              <KPI
+                label="ממוצע בר"
+                labelEn={serviceStats.barCount > 0 ? `Bar Avg (${serviceStats.barCount})` : 'Bar Avg'}
+                value={fmtMins(serviceStats.barAvg)}
+              />
+              <KPI
+                label="ארוך ביותר בר"
+                labelEn="Bar Longest"
+                value={fmtMins(serviceStats.barMax)}
+              />
+              <KPI
+                label="פריטים ממוצע"
+                labelEn="Avg Items / Order"
+                value={String(avgItemsPerOrder)}
+              />
+              <KPI
+                label="שעת שיא"
+                labelEn="Peak Hour"
+                value={peakHour ? peakHour.hour : '—'}
+                sub={peakHour ? `${peakHour.count} הזמנות` : undefined}
+              />
+            </div>
+          </div>
+
           {/* Charts grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Top items */}
+            {/* Top items — CSS bar list */}
             <div className="bg-white rounded-2xl border-2 border-navy/10 p-5">
               <h3 className="font-display font-bold text-navy mb-1">פריטים פופולריים</h3>
               <p className="font-body text-xs text-navy/40 mb-4">Top Items — All Time</p>
               {topItems.length === 0 ? (
                 <div className="h-52 flex items-center justify-center text-navy/25 font-body text-sm">אין נתונים</div>
               ) : (
-                <ResponsiveContainer width="100%" height={topItems.length * 28 + 30}>
-                  <BarChart data={topItems} layout="vertical" margin={{ right: 30, left: 0, top: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11, fontFamily: 'Heebo' }} />
-                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fontFamily: 'Heebo' }} />
-                    <Tooltip formatter={(v) => [`${v} יח'`, 'כמות']} />
-                    <Bar dataKey="qty" fill="#1A2340" radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 11, fill: '#1A2340' }} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {topItems.map((item, i) => {
+                    const pct = Math.round(item.qty / topItems[0].qty * 100)
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="w-5 text-center font-body text-xs text-navy/25 flex-shrink-0 tabular-nums">{i + 1}</span>
+                        <div className="w-28 text-right font-body text-xs text-navy/70 truncate flex-shrink-0" dir="rtl">
+                          {item.emoji && <span className="mr-1">{item.emoji}</span>}{item.name}
+                        </div>
+                        <div className="flex-1 h-3.5 bg-cream rounded-full overflow-hidden">
+                          <div className="h-full bg-navy rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="w-7 text-right font-display font-bold text-navy text-sm flex-shrink-0 tabular-nums">{item.qty}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
 
@@ -232,21 +343,11 @@ export default function AnalyticsPage() {
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={false}
-                    >
+                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={false}>
                       {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
-                    <Legend
-                      formatter={(value) => <span style={{ fontFamily: 'Heebo', fontSize: 12, color: '#1A2340' }}>{value}</span>}
-                    />
+                    <Legend formatter={(value) => <span style={{ fontFamily: 'Heebo', fontSize: 12, color: '#1A2340' }}>{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -289,6 +390,23 @@ export default function AnalyticsPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Daily revenue trend — only shown when data spans multiple days */}
+            {dailyData.length > 1 && (
+              <div className="bg-white rounded-2xl border-2 border-navy/10 p-5 lg:col-span-2">
+                <h3 className="font-display font-bold text-navy mb-1">הכנסות יומיות</h3>
+                <p className="font-body text-xs text-navy/40 mb-4">Daily Revenue Trend</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={dailyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'Heebo' }} />
+                    <YAxis tickFormatter={(v) => `₪${v}`} tick={{ fontSize: 11, fontFamily: 'Heebo' }} />
+                    <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'הכנסות']} />
+                    <Bar dataKey="revenue" fill="#C8A96E" radius={[4, 4, 0, 0]} name="הכנסות" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
       </div>
