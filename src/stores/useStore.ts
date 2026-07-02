@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { MenuItem, Order, AppSettings, Role, OrderItem, OrderType } from '../types'
 import { DEFAULT_MENU } from '../lib/menuData'
 import { MOCK_ORDERS } from '../lib/mockOrders'
-import { pushSettings, pushOrder, pushMenu, clearOrders, reserveOrderId, resetOrderCounter } from '../services/firebase'
+import { pushSettings, pushOrder, pushMenu, clearOrders, deleteOrderDoc, reserveOrderId, resetOrderCounter } from '../services/firebase'
 
 const LS_ORDERS   = 'yuu_orders'
 const LS_MENU     = 'yuu_menu'
@@ -82,6 +82,7 @@ interface AppState {
   orders: Order[]
   createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Promise<Order>
   updateOrder:          (id: string, patch: Partial<Order>) => void
+  removeOrder:          (id: string) => void
   refreshOrders:        () => void
   resetOrders:          () => Promise<void>
   _setOrdersFromRemote: (orders: Order[]) => void
@@ -159,6 +160,11 @@ export const useStore = create<AppState>((set, get) => {
       saveOrders(updated); set({ orders: updated })
       const changed = updated.find(o => o.id === id)
       if (changed) pushOrder(changed)
+    },
+    removeOrder(id) {
+      const updated = get().orders.filter(o => o.id !== id)
+      saveOrders(updated); set({ orders: updated })
+      deleteOrderDoc(id).catch(console.error)
     },
     refreshOrders() { set({ orders: loadOrders() }) },
     async resetOrders() {

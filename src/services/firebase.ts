@@ -1,7 +1,7 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   getFirestore,
-  doc, getDoc, setDoc, onSnapshot,
+  doc, getDoc, setDoc, deleteDoc, onSnapshot,
   collection, getDocs, writeBatch, runTransaction,
   type Firestore,
 } from 'firebase/firestore'
@@ -76,6 +76,11 @@ export function subscribeOrders(onUpdate: (orders: Order[]) => void): () => void
     snap => onUpdate(snap.docs.map(d => d.data() as Order)),
     err  => console.error('Firestore orders error:', err),
   )
+}
+
+export async function deleteOrderDoc(id: string): Promise<void> {
+  if (!_db) return
+  await deleteDoc(doc(_db, 'orders', id))
 }
 
 export async function clearOrders(): Promise<void> {
