@@ -4,7 +4,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 import TopBar from '../components/TopBar'
+import Modal from '../components/Modal'
 import { useStore } from '../stores/useStore'
+import { saveEventSnapshot, FIREBASE_ENABLED } from '../services/firebase'
 
 const COLORS = ['#1A2340', '#C8A96E', '#4B6380']
 
@@ -22,6 +24,10 @@ export default function AnalyticsPage() {
 
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [eventName, setEventName] = useState('')
+  const [eventDate, setEventDate] = useState(new Date().toISOString().slice(0, 10))
+  const [saving, setSaving] = useState(false)
 
   // Staff orders are excluded from all revenue statistics
   const paidOrders = useMemo(() =>
@@ -169,6 +175,31 @@ export default function AnalyticsPage() {
       }))
   }, [paidOrders])
 
+  async function handleSaveEvent() {
+    if (!eventName.trim()) return
+    setSaving(true)
+    try {
+      const id = `event_${Date.now()}`
+      await saveEventSnapshot({
+        id,
+        name: eventName.trim(),
+        eventDate,
+        savedAt: new Date().toISOString(),
+        notes: '',
+        orders: orders.filter(o => o.sentToKitchenAt),
+        menuItems,
+      })
+      setSaveModalOpen(false)
+      setEventName('')
+      setEventDate(new Date().toISOString().slice(0, 10))
+      showToast('האירוע נשמר בארכיון / Event archived')
+    } catch {
+      showToast('שגיאה בשמירה / Save failed', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleReset() {
     setResetting(true)
     try {
@@ -207,10 +238,19 @@ export default function AnalyticsPage() {
         <div className="max-w-6xl mx-auto space-y-6">
 
           {/* Header row */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="font-body text-sm text-navy/50">
               סה״כ כל ההיסטוריה / All-time statistics
             </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              {FIREBASE_ENABLED && (
+                <button
+                  onClick={() => setSaveModalOpen(true)}
+                  className="px-4 py-2 rounded-xl border-2 border-gold/50 text-gold hover:border-gold hover:bg-gold/10 font-body text-sm transition-colors"
+                >
+                  💾 שמור אירוע / Save Event
+                </button>
+              )}
             {!confirmReset ? (
               <button
                 onClick={() => setConfirmReset(true)}
@@ -230,6 +270,7 @@ export default function AnalyticsPage() {
                 </button>
               </div>
             )}
+            </div>
           </div>
 
           {/* KPIs — revenue / orders */}
@@ -410,6 +451,55 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+
+      {/* Save Event Modal */}
+      <Modal open={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="שמור אירוע / Save Event">
+        <div className="space-y-4">
+          <p className="font-body text-sm text-navy/60">
+            כל ההזמנות הנוכחיות ישמרו בארכיון עם שם האירוע. לאחר מכן תוכל לאפס את הנתונים לאירוע הבא.
+          </p>
+          <p className="font-body text-xs text-navy/40">
+            All current orders will be archived with the event name. You can then reset for the next event.
+          </p>
+          <div>
+            <label className="font-body text-sm text-navy/70 block mb-1">שם האירוע / Event name *</label>
+            <input
+              type="text"
+              value={eventName}
+              onChange={e => setEventName(e.target.value)}
+              placeholder="למשל: פופ-אפ ת״א יולי 2026"
+              className="w-full border-2 border-navy/15 rounded-xl px-3 py-2 font-body text-navy bg-cream focus:outline-none focus:border-gold"
+              dir="rtl"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="font-body text-sm text-navy/70 block mb-1">תאריך האירוע / Event date</label>
+            <input
+              type="date"
+              value={eventDate}
+              onChange={e => setEventDate(e.target.value)}
+              className="w-full border-2 border-navy/15 rounded-xl px-3 py-2 font-body text-navy bg-cream focus:outline-none focus:border-gold"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={handleSaveEvent}
+              disabled={saving || !eventName.trim()}
+              className="flex-1 py-3 bg-navy text-cream rounded-xl font-body font-semibold hover:bg-navy/80 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {saving && <span className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" />}
+              {saving ? 'שומר...' : '💾 שמור בארכיון / Archive'}
+            </button>
+            <button
+              onClick={() => setSaveModalOpen(false)}
+              className="px-4 py-3 border-2 border-navy/15 rounded-xl font-body text-navy/60 hover:border-navy/40 transition-colors"
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -48,6 +48,16 @@ export interface Order {
   priority?: boolean       // pinned to top of kitchen/bar queue
 }
 
+export interface EventSnapshot {
+  id: string
+  name: string
+  eventDate: string   // ISO date (YYYY-MM-DD) of the event itself
+  savedAt: string     // ISO datetime when snapshot was archived
+  notes: string       // editable improvement notes
+  orders: Order[]
+  menuItems: MenuItem[]
+}
+
 export interface AppSettings {
   bitQR1: string            // hard-coded default or uploaded base64
   bitQR2: string            // optional second QR

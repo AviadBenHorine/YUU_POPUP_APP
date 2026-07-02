@@ -5,7 +5,7 @@ import {
   collection, getDocs, writeBatch, runTransaction,
   type Firestore,
 } from 'firebase/firestore'
-import type { AppSettings, MenuItem, Order } from '../types'
+import type { AppSettings, MenuItem, Order, EventSnapshot } from '../types'
 
 const cfg = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -81,6 +81,33 @@ export function subscribeOrders(onUpdate: (orders: Order[]) => void): () => void
 export async function deleteOrderDoc(id: string): Promise<void> {
   if (!_db) return
   await deleteDoc(doc(_db, 'orders', id))
+}
+
+// ── Event Snapshots ───────────────────────────────────────────────────────────
+
+export async function saveEventSnapshot(snapshot: EventSnapshot): Promise<void> {
+  if (!_db) return
+  const clean = JSON.parse(JSON.stringify(snapshot)) as EventSnapshot
+  await setDoc(doc(_db, 'eventSnapshots', snapshot.id), clean)
+}
+
+export function subscribeEventSnapshots(onUpdate: (snapshots: EventSnapshot[]) => void): () => void {
+  if (!_db) return () => {}
+  return onSnapshot(
+    collection(_db, 'eventSnapshots'),
+    snap => onUpdate(snap.docs.map(d => d.data() as EventSnapshot)),
+    err => console.error('Firestore eventSnapshots error:', err),
+  )
+}
+
+export async function updateEventNotes(id: string, notes: string): Promise<void> {
+  if (!_db) return
+  await setDoc(doc(_db, 'eventSnapshots', id), { notes }, { merge: true })
+}
+
+export async function deleteEventSnapshot(id: string): Promise<void> {
+  if (!_db) return
+  await deleteDoc(doc(_db, 'eventSnapshots', id))
 }
 
 export async function clearOrders(): Promise<void> {

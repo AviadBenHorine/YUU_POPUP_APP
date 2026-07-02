@@ -9,6 +9,7 @@ import KitchenPage from './pages/KitchenPage'
 import BarPage from './pages/BarPage'
 import HistoryPage from './pages/HistoryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminNav from './components/AdminNav'
 import { useStore } from './stores/useStore'
@@ -128,6 +129,12 @@ function App() {
         <Route path="/settings" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <SettingsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/events" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <EventsPage />
           </ProtectedRoute>
         } />
 
