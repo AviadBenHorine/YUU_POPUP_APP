@@ -79,12 +79,16 @@ export default function PaymentPage() {
     setConfirming(true)
     try {
       const imageKey = `proof_${order!.id}_${Date.now()}`
-      await saveImage(imageKey, imageFile)
-      finaliseOrder('bit', imageKey)
+      try {
+        await saveImage(imageKey, imageFile)
+        finaliseOrder('bit', imageKey)
+      } catch (photoErr) {
+        console.error('Photo save failed, finalising without proof:', photoErr)
+        finaliseOrder('bit')
+        showToast('הזמנה נשלחה — צילום לא נשמר / Order sent — photo not saved', 'error')
+        return
+      }
       showToast('✓ הזמנה נשלחה למטבח / Order sent to kitchen')
-    } catch (err) {
-      console.error(err)
-      showToast('שגיאה בשמירת התשלום / Error saving payment', 'error')
     } finally {
       setConfirming(false)
     }

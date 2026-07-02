@@ -82,7 +82,7 @@ interface AppState {
   createOrder:          (type: OrderType, items: OrderItem[], customerName?: string) => Promise<Order>
   updateOrder:          (id: string, patch: Partial<Order>) => void
   refreshOrders:        () => void
-  resetOrders:          () => void
+  resetOrders:          () => Promise<void>
   _setOrdersFromRemote: (orders: Order[]) => void
 
   draftItems: OrderItem[]
@@ -160,10 +160,10 @@ export const useStore = create<AppState>((set, get) => {
       if (changed) pushOrder(changed)
     },
     refreshOrders() { set({ orders: loadOrders() }) },
-    resetOrders() {
+    async resetOrders() {
       saveOrders([]); set({ orders: [] })
-      clearOrders().catch(console.error)
-      resetOrderCounter().catch(console.error)
+      await clearOrders()
+      await resetOrderCounter()
     },
     _setOrdersFromRemote(orders) {
       saveOrders(orders); set({ orders })

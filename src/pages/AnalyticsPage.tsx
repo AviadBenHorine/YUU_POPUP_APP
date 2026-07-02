@@ -17,6 +17,7 @@ export default function AnalyticsPage() {
   const showToast = useStore(s => s.showToast)
 
   const [confirmReset, setConfirmReset] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   // Staff orders are excluded from all revenue statistics
   const paidOrders = useMemo(() =>
@@ -101,10 +102,17 @@ export default function AnalyticsPage() {
     { name: 'קינוחים / Desserts', value: catRevenue.dessert },
   ].filter(d => d.value > 0)
 
-  function handleReset() {
-    resetOrders()
-    setConfirmReset(false)
-    showToast('הנתונים אופסו / Analytics reset')
+  async function handleReset() {
+    setResetting(true)
+    try {
+      await resetOrders()
+      setConfirmReset(false)
+      showToast('הנתונים אופסו / Analytics reset')
+    } catch {
+      showToast('שגיאה באיפוס — נסה שוב / Reset failed', 'error')
+    } finally {
+      setResetting(false)
+    }
   }
 
   const staffRevenue = staffOrders.reduce((s, o) => s + o.totalPrice, 0)
@@ -148,8 +156,9 @@ export default function AnalyticsPage() {
             ) : (
               <div className="flex items-center gap-3 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2">
                 <span className="font-body text-red-600 text-sm">בטוח? / Are you sure?</span>
-                <button onClick={handleReset} className="bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-body hover:bg-red-600 transition-colors">
-                  מחק / Delete
+                <button onClick={handleReset} disabled={resetting} className="bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-body hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                  {resetting && <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />}
+                  {resetting ? 'מוחק...' : 'מחק / Delete'}
                 </button>
                 <button onClick={() => setConfirmReset(false)} className="text-navy/50 text-sm font-body hover:text-navy">
                   ביטול
