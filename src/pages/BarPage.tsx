@@ -109,7 +109,10 @@ function BarCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' | 'b
   const doneCount = myItems.filter(oi => checked[String(oi._idx)]).length
 
   return (
-    <div className={`rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${agingClass(since, yellowMins, redMins, agingOn)}`}>
+    <div className={`rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${order.priority ? 'border-gold bg-gold/5 shadow-md' : agingClass(since, yellowMins, redMins, agingOn)}`}>
+      {order.priority && (
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gold rounded-t-2xl" />
+      )}
       {/* Header — name first, number secondary */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
@@ -133,8 +136,13 @@ function BarCard({ order, dessertTo }: { order: Order; dessertTo: 'kitchen' | 'b
           <div className="text-navy/30 text-xs">
             {new Date(since).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
           </div>
+          <button
+            onClick={() => updateOrder(order.id, { priority: !order.priority })}
+            className={`mt-1 text-xs font-body px-2 py-1 rounded-lg border transition-colors ${order.priority ? 'bg-gold border-gold text-navy font-bold' : 'text-navy/30 border-navy/15 hover:text-gold hover:border-gold'}`}>
+            ⚡
+          </button>
           <button onClick={handleDelete}
-            className={`mt-1 text-xs font-body px-2 py-1 rounded-lg border transition-colors ${deleteConfirm ? 'bg-red-500 text-white border-red-500' : 'text-navy/30 border-navy/15 hover:text-red-500 hover:border-red-300'}`}>
+            className={`text-xs font-body px-2 py-1 rounded-lg border transition-colors ${deleteConfirm ? 'bg-red-500 text-white border-red-500' : 'text-navy/30 border-navy/15 hover:text-red-500 hover:border-red-300'}`}>
             {deleteConfirm ? 'מחק? ✕' : '🗑'}
           </button>
         </div>
@@ -309,7 +317,11 @@ export default function BarPage() {
       if (o.barDoneAt) return false  // bar already clicked Done
       return o.items.some(oi => isBarItem(menuItems.find(m => m.id === oi.menuItemId)?.category ?? ''))
     })
-    .sort((a, b) => new Date(a.sentToKitchenAt ?? a.createdAt).getTime() - new Date(b.sentToKitchenAt ?? b.createdAt).getTime())
+    .sort((a, b) => {
+      if (a.priority && !b.priority) return -1
+      if (!a.priority && b.priority) return 1
+      return new Date(a.sentToKitchenAt ?? a.createdAt).getTime() - new Date(b.sentToKitchenAt ?? b.createdAt).getTime()
+    })
 
   // Done panel: orders where bar has explicitly clicked Done (not just any 'ready' order)
   const doneOrders = orders

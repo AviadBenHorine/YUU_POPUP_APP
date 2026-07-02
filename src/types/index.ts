@@ -45,6 +45,7 @@ export interface Order {
   checkedItems?: Record<string, boolean>  // menuItemId → ticked by kitchen/bar
   kitchenDoneAt?: string   // set when kitchen clicks Done
   barDoneAt?: string       // set when bar clicks Done
+  priority?: boolean       // pinned to top of kitchen/bar queue
 }
 
 export interface AppSettings {
