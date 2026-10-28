@@ -629,21 +629,42 @@ export default function PrepEventPage() {
     <div className="h-dvh flex flex-col bg-cream overflow-hidden" dir="rtl">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="bg-navy px-4 pt-3 pb-0 shrink-0">
+      <div className="bg-navy px-4 pt-2 pb-0 shrink-0">
 
-        {/* Back + status */}
-        <div className="flex items-center gap-3 mb-2">
+        {/* Row 1: Back | Name | Status */}
+        <div className="flex items-center gap-2 mb-1">
           <button
             onClick={() => navigate('/prep')}
-            className="text-cream/50 hover:text-cream font-body text-sm transition-colors"
+            className="text-cream/50 hover:text-cream font-body text-sm transition-colors shrink-0"
             aria-label="חזרה לרשימה"
           >
             ← חזרה
           </button>
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <input
+                autoFocus
+                type="text"
+                value={nameVal}
+                onChange={e => setNameVal(e.target.value)}
+                onBlur={saveName}
+                onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+                className="w-full bg-navy/20 text-cream font-display font-bold text-base rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-gold/50"
+              />
+            ) : (
+              <button
+                onClick={() => { setEditingName(true); setNameVal(event.name) }}
+                className="font-display font-bold text-cream text-base hover:text-gold/80 transition-colors flex items-center gap-1 truncate w-full justify-end"
+              >
+                <span className="text-cream/20 text-xs">✏️</span>
+                <span className="truncate">{event.name}</span>
+              </button>
+            )}
+          </div>
           <select
             value={event.status}
             onChange={e => handleStatusChange(e.target.value as PrepStatus)}
-            className={`text-xs px-2 py-1 rounded-full font-body font-medium border-0 focus:outline-none cursor-pointer ${STATUS_INFO[event.status].color}`}
+            className={`text-xs px-2 py-0.5 rounded-full font-body font-medium border-0 focus:outline-none cursor-pointer shrink-0 ${STATUS_INFO[event.status].color}`}
           >
             <option value="planning">בתכנון</option>
             <option value="active">פעיל</option>
@@ -651,61 +672,37 @@ export default function PrepEventPage() {
           </select>
         </div>
 
-        {/* Event name */}
-        {editingName ? (
-          <input
-            autoFocus
-            type="text"
-            value={nameVal}
-            onChange={e => setNameVal(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
-            className="w-full bg-navy/20 text-cream font-display font-bold text-xl rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-gold/50 mb-1"
-          />
-        ) : (
-          <button
-            onClick={() => { setEditingName(true); setNameVal(event.name) }}
-            className="font-display font-bold text-cream text-xl text-right w-full hover:text-gold/80 transition-colors mb-1 flex items-center gap-1"
-          >
-            {event.name}
-            <span className="text-cream/30 text-sm">✏️</span>
-          </button>
-        )}
-
-        {/* Date */}
-        {editingDate ? (
-          <input
-            autoFocus
-            type="date"
-            value={dateVal}
-            onChange={e => setDateVal(e.target.value)}
-            onBlur={saveDate}
-            onKeyDown={e => { if (e.key === 'Enter') saveDate(); if (e.key === 'Escape') setEditingDate(false) }}
-            dir="ltr"
-            className="bg-navy/20 text-cream text-sm rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-gold/50 mb-2"
-          />
-        ) : (
-          <button
-            onClick={() => { setEditingDate(true); setDateVal(fmtDate(event.date)) }}
-            className="font-body text-cream/50 text-sm hover:text-cream/80 transition-colors mb-2 flex items-center gap-1"
-          >
-            {event.date ? new Date(event.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '+ הוסף תאריך'}
-            {event.date && <span className="text-cream/20">✏️</span>}
-          </button>
-        )}
-
-        {/* Progress bar */}
-        {totalCount > 0 && (
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="font-body text-xs text-cream/50">{totalDone}/{totalCount} בוצעו</div>
-              <div className="font-body text-xs text-cream/40">{progPct}%</div>
+        {/* Row 2: Date + Progress */}
+        <div className="flex items-center gap-3 mb-2">
+          {editingDate ? (
+            <input
+              autoFocus
+              type="date"
+              value={dateVal}
+              onChange={e => setDateVal(e.target.value)}
+              onBlur={saveDate}
+              onKeyDown={e => { if (e.key === 'Enter') saveDate(); if (e.key === 'Escape') setEditingDate(false) }}
+              dir="ltr"
+              className="bg-navy/20 text-cream text-xs rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-gold/50 shrink-0"
+            />
+          ) : (
+            <button
+              onClick={() => { setEditingDate(true); setDateVal(fmtDate(event.date)) }}
+              className="font-body text-cream/40 text-xs hover:text-cream/70 transition-colors shrink-0 flex items-center gap-1"
+            >
+              {event.date ? new Date(event.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '+ תאריך'}
+              {event.date && <span className="text-cream/20">✏️</span>}
+            </button>
+          )}
+          {totalCount > 0 && (
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
+                <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${progPct}%` }} />
+              </div>
+              <span className="font-body text-xs text-cream/40 shrink-0">{totalDone}/{totalCount}</span>
             </div>
-            <div className="h-1.5 bg-cream/10 rounded-full overflow-hidden">
-              <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${progPct}%` }} />
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-0 -mx-4">
