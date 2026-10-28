@@ -7,6 +7,8 @@ import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import { useStore } from '../stores/useStore'
 import { saveEventSnapshot, FIREBASE_ENABLED } from '../services/firebase'
+import { fetchAllPrepEvents, fetchPrepEventSnapshot } from '../services/prepFirebase'
+import type { PrepEvent } from '../types/prep'
 
 const COLORS = ['#1A2340', '#C8A96E', '#4B6380']
 
@@ -28,6 +30,8 @@ export default function AnalyticsPage() {
   const [eventName, setEventName] = useState('')
   const [eventDate, setEventDate] = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
+  const [prepEvents, setPrepEvents] = useState<PrepEvent[]>([])
+  const [linkedPrepId, setLinkedPrepId] = useState('')
 
   // Staff orders are excluded from all revenue statistics
   const paidOrders = useMemo(() =>
@@ -175,11 +179,24 @@ export default function AnalyticsPage() {
       }))
   }, [paidOrders])
 
+  async function handleOpenSaveModal() {
+    setSaveModalOpen(true)
+    if (FIREBASE_ENABLED) {
+      try {
+        const evts = await fetchAllPrepEvents()
+        setPrepEvents(evts.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+      } catch { /* non-critical */ }
+    }
+  }
+
   async function handleSaveEvent() {
     if (!eventName.trim()) return
     setSaving(true)
     try {
       const id = `event_${Date.now()}`
+      const prepData = linkedPrepId
+        ? await fetchPrepEventSnapshot(linkedPrepId) ?? undefined
+        : undefined
       await saveEventSnapshot({
         id,
         name: eventName.trim(),
@@ -188,10 +205,12 @@ export default function AnalyticsPage() {
         notes: '',
         orders: orders.filter(o => o.sentToKitchenAt),
         menuItems,
+        prepData,
       })
       setSaveModalOpen(false)
       setEventName('')
       setEventDate(new Date().toISOString().slice(0, 10))
+      setLinkedPrepId('')
       showToast('האירוע נשמר בארכיון / Event archived')
     } catch {
       showToast('שגיאה בשמירה / Save failed', 'error')
@@ -245,7 +264,7 @@ export default function AnalyticsPage() {
             <div className="flex items-center gap-3 flex-wrap">
               {FIREBASE_ENABLED && (
                 <button
-                  onClick={() => setSaveModalOpen(true)}
+                  onClick={handleOpenSaveModal}
                   className="px-4 py-2 rounded-xl border-2 border-gold/50 text-gold hover:border-gold hover:bg-gold/10 font-body text-sm transition-colors"
                 >
                   💾 שמור אירוע / Save Event
@@ -482,6 +501,27 @@ export default function AnalyticsPage() {
               className="w-full border-2 border-navy/15 rounded-xl px-3 py-2 font-body text-navy bg-cream focus:outline-none focus:border-gold"
             />
           </div>
+          {prepEvents.length > 0 && (
+            <div>
+              <label className="font-body text-sm text-navy/70 block mb-1" dir="rtl">קשר לאירוע הכנות (אופציונלי)</label>
+              <select
+                value={linkedPrepId}
+                onChange={e => setLinkedPrepId(e.target.value)}
+                dir="rtl"
+                className="w-full border-2 border-navy/15 rounded-xl px-3 py-2 font-body text-navy bg-cream focus:outline-none focus:border-gold"
+              >
+                <option value="">— ללא קישור —</option>
+                {prepEvents.map(e => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+              {linkedPrepId && (
+                <div className="font-body text-xs text-gold mt-1" dir="rtl">
+                  נתוני ההכנות ייכנסו לארכיון יחד עם האירוע
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleSaveEvent}

@@ -11,6 +11,8 @@ import HistoryPage from './pages/HistoryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
+import PrepPage from './pages/PrepPage'
+import PrepEventPage from './pages/PrepEventPage'
 import AdminNav from './components/AdminNav'
 import { useStore } from './stores/useStore'
 import {
@@ -135,6 +137,18 @@ function App() {
         <Route path="/events" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <EventsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/prep" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <PrepPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/prep/:eventId" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <PrepEventPage />
           </ProtectedRoute>
         } />
 

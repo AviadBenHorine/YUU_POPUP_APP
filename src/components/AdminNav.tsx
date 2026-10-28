@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { path: '/analytics', icon: '📊',  he: 'נתונים',   en: 'Analytics' },
   { path: '/history',   icon: '📋',  he: 'היסטוריה', en: 'History'   },
   { path: '/events',    icon: '📦',  he: 'ארכיון',   en: 'Events'    },
+  { path: '/prep',      icon: '📋',  he: 'הכנות',    en: 'Prep'      },
   { path: '/settings',  icon: '⚙️',  he: 'הגדרות',   en: 'Settings'  },
 ]
 

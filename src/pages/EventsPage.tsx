@@ -10,6 +10,7 @@ import {
   subscribeEventSnapshots, updateEventNotes, deleteEventSnapshot, FIREBASE_ENABLED,
 } from '../services/firebase'
 import type { EventSnapshot, Order, MenuItem } from '../types'
+import type { PrepSnapshot } from '../types/prep'
 
 const PIE_COLORS = ['#1A2340', '#C8A96E', '#4B6380']
 
@@ -117,13 +118,129 @@ function computeAnalytics(orders: Order[], menuItems: MenuItem[]) {
 
 const PAGE_SIZE = 15
 
+// ─── Read-only archive view of prep data ─────────────────────────────────────
+
+function PrepArchiveView({ prep }: { prep: PrepSnapshot }) {
+  const sortedGroups = [...prep.shoppingGroups].sort((a, b) => a.order - b.order)
+  const sortedOwners = [...prep.owners].sort((a, b) => a.order - b.order)
+  const sortedPortions = [...prep.portions].sort((a, b) => a.order - b.order)
+  const totalPortionQty = prep.portions.reduce((s, p) => s + p.qty, 0)
+  const maxPortionQty = prep.portions.length > 0 ? Math.max(...prep.portions.map(p => p.qty)) : 1
+
+  const shopItems = prep.items.filter(i => i.kind === 'shop')
+  const taskItems = prep.items.filter(i => i.kind === 'task')
+
+  return (
+    <div className="p-5 space-y-6" dir="rtl">
+      <div className="font-body text-xs text-navy/40 mb-2">הכנות מארכיון: {prep.prepEventName}</div>
+
+      {/* Shopping groups */}
+      {sortedGroups.length > 0 && (
+        <div>
+          <div className="font-display font-bold text-navy text-sm mb-3">🛒 קניות</div>
+          <div className="space-y-3">
+            {sortedGroups.map(group => {
+              const gItems = shopItems.filter(i => i.groupId === group.id).sort((a, b) => a.order - b.order)
+              const doneCount = gItems.filter(i => i.done).length
+              return (
+                <div key={group.id} className="bg-cream rounded-xl border border-navy/10 overflow-hidden">
+                  <div className="px-4 py-2 bg-white/50 border-b border-navy/8 flex items-center justify-between">
+                    <div>
+                      <div className="font-display font-bold text-navy text-xs">{group.title}</div>
+                      {group.subtitle && <div className="font-body text-xs text-navy/40">{group.subtitle}</div>}
+                    </div>
+                    <div className="font-body text-xs text-navy/40">{doneCount}/{gItems.length}</div>
+                  </div>
+                  {gItems.map(item => (
+                    <div key={item.id} className={`flex items-center gap-3 px-4 py-2 border-b border-navy/5 last:border-0 ${item.done ? 'opacity-50' : ''}`}>
+                      <span className={`text-navy/60 text-sm ${item.done ? 'line-through text-navy/30' : ''}`}>{item.name}</span>
+                      {(item.qty || item.unit) && (
+                        <span className="font-body text-xs text-navy/40 mr-auto" dir="ltr">{item.qty}{item.unit ? ` ${item.unit}` : ''}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tasks */}
+      {sortedOwners.length > 0 && (
+        <div>
+          <div className="font-display font-bold text-navy text-sm mb-3">✅ משימות</div>
+          <div className="space-y-3">
+            {sortedOwners.map(owner => {
+              const oItems = taskItems.filter(i => i.groupId === owner.id).sort((a, b) => a.order - b.order)
+              const doneCount = oItems.filter(i => i.done).length
+              return (
+                <div key={owner.id} className="bg-cream rounded-xl border border-navy/10 overflow-hidden">
+                  <div className="px-4 py-2 bg-white/50 border-b border-navy/8 flex items-center justify-between">
+                    <div className="font-display font-bold text-navy text-xs">{owner.name}</div>
+                    <div className="font-body text-xs text-navy/40">{doneCount}/{oItems.length}</div>
+                  </div>
+                  {oItems.map(item => (
+                    <div key={item.id} className={`flex items-center gap-3 px-4 py-2 border-b border-navy/5 last:border-0 ${item.done ? 'opacity-50' : ''}`}>
+                      <span className={`font-body text-sm text-navy/80 ${item.done ? 'line-through text-navy/30' : ''}`}>{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Portions */}
+      {sortedPortions.length > 0 && (
+        <div>
+          <div className="font-display font-bold text-navy text-sm mb-3">📊 הערכת מנות</div>
+          <div className="bg-cream rounded-xl border border-navy/10 overflow-hidden">
+            <div className="grid grid-cols-[1fr_60px_80px] gap-2 px-4 py-2 bg-white/50 border-b border-navy/8">
+              <div className="font-body text-xs text-navy/50">מנה</div>
+              <div className="font-body text-xs text-navy/50 text-left" dir="ltr">כמות</div>
+              <div />
+            </div>
+            {sortedPortions.map(portion => {
+              const pct = maxPortionQty > 0 ? (portion.qty / maxPortionQty) * 100 : 0
+              return (
+                <div key={portion.id} className="grid grid-cols-[1fr_60px_80px] gap-2 items-center px-4 py-2 border-b border-navy/5 last:border-0">
+                  <span className="font-body text-sm text-navy">{portion.name}</span>
+                  <span className="font-body text-sm tabular-nums text-navy/70 text-left" dir="ltr">{portion.qty}</span>
+                  <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-gold rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+            <div className="grid grid-cols-[1fr_60px_80px] gap-2 items-center px-4 py-2.5 bg-white/50 border-t border-navy/10">
+              <div className="font-display font-bold text-navy text-sm">סה״כ</div>
+              <div className="font-display font-bold text-navy text-sm text-left" dir="ltr">{totalPortionQty}</div>
+              <div />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      {prep.notes && (
+        <div>
+          <div className="font-display font-bold text-navy text-sm mb-2">📝 הערות הכנה</div>
+          <div className="bg-cream rounded-xl border border-navy/10 px-4 py-3 font-body text-sm text-navy/70 whitespace-pre-wrap">{prep.notes}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EventsPage() {
   const showToast = useStore(s => s.showToast)
 
   const [snapshots, setSnapshots] = useState<EventSnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'analytics' | 'history' | 'notes'>('analytics')
+  const [activeTab, setActiveTab] = useState<'analytics' | 'history' | 'notes' | 'prep'>('analytics')
   const [notesText, setNotesText] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -324,6 +441,7 @@ export default function EventsPage() {
                           { id: 'analytics', label: '📊 נתונים', en: 'Analytics' },
                           { id: 'history',   label: '📋 היסטוריה', en: 'History' },
                           { id: 'notes',     label: '📝 הערות', en: 'Notes' },
+                          ...(selectedEvent?.prepData ? [{ id: 'prep' as const, label: '🛒 הכנות', en: 'Prep' }] : []),
                         ] as const).map(tab => (
                           <button
                             key={tab.id}
@@ -565,6 +683,11 @@ export default function EventsPage() {
                             {savingNotes ? 'שומר...' : '💾 שמור הערות / Save Notes'}
                           </button>
                         </div>
+                      )}
+
+                      {/* ── Prep tab ─────────────────────────────────────── */}
+                      {activeTab === 'prep' && selectedEvent?.prepData && (
+                        <PrepArchiveView prep={selectedEvent.prepData} />
                       )}
                     </div>
                   )}

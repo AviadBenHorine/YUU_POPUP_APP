@@ -28,6 +28,8 @@ if (ENABLED) {
 
 export const FIREBASE_ENABLED = ENABLED
 
+export function getFirestoreDb(): typeof _db { return _db }
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 export function pushSettings(settings: AppSettings): void {

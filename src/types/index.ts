@@ -58,6 +58,7 @@ export interface EventSnapshot {
   notes: string       // editable improvement notes
   orders: Order[]
   menuItems: MenuItem[]
+  prepData?: import('./prep').PrepSnapshot  // optional snapshot of linked prep event
 }
 
 export interface AppSettings {
