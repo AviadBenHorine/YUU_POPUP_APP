@@ -132,6 +132,28 @@ export default function LoginPage() {
                 </button>
               )
             })}
+
+            {/* Quick access — no password required */}
+            <div className="relative my-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-navy/10" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-cream px-3 text-navy/35 text-xs font-body">גישה מהירה</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/prep')}
+              className="group flex items-center gap-5 px-6 py-5 rounded-2xl border-2 border-gold/40 bg-gold/5 hover:bg-gold/10 hover:border-gold active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="text-4xl">📋</span>
+              <div className="text-right flex-1">
+                <div className="font-display font-bold text-navy text-xl">הכנות לאירוע</div>
+                <div className="text-navy/50 text-sm font-body">Event Prep</div>
+              </div>
+              <span className="text-gold/50 group-hover:text-gold transition-colors text-2xl">›</span>
+            </button>
           </div>
         </div>
       ) : (

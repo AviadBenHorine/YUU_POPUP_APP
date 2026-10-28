@@ -140,17 +140,8 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/prep" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <PrepPage />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/prep/:eventId" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <PrepEventPage />
-          </ProtectedRoute>
-        } />
+        <Route path="/prep" element={<PrepPage />} />
+        <Route path="/prep/:eventId" element={<PrepEventPage />} />
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
