@@ -13,18 +13,18 @@ const NAV_ITEMS = [
 
 export default function AdminNav() {
   return (
-    <nav className="bg-navy/95 backdrop-blur border-b border-gold/20 flex items-center justify-center gap-1 px-3 py-1 shrink-0 z-20">
+    <nav className="bg-navy/95 backdrop-blur border-b border-gold/20 flex items-center justify-between gap-0.5 px-2 py-1 shrink-0 z-20">
       {NAV_ITEMS.map(item => (
         <NavLink
           key={item.path}
           to={item.path}
           className={({ isActive }) => `
-            flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg text-center transition-colors min-w-[60px]
+            flex-1 flex flex-col items-center gap-0.5 min-w-0 px-0.5 py-1.5 rounded-lg text-center transition-colors
             ${isActive ? 'bg-gold/20 text-gold' : 'text-cream/50 hover:text-cream/80 hover:bg-white/5'}
           `}
         >
-          <span className="text-base leading-none">{item.icon}</span>
-          <span className="text-xs font-body font-medium">{item.he}</span>
+          <span className="text-sm leading-none">{item.icon}</span>
+          <span className="text-[10px] font-body font-medium truncate w-full">{item.he}</span>
         </NavLink>
       ))}
     </nav>

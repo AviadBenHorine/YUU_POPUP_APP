@@ -1097,13 +1097,18 @@ export default function PrepEventPage() {
                                 type="text"
                                 value={portionEditName}
                                 onChange={e => setPortionEditName(e.target.value)}
-                                onBlur={() => savePortionEdit(portion.id)}
+                                onBlur={e => {
+                                  // Don't save if focus is moving to the qty input in the same row
+                                  if ((e.relatedTarget as HTMLElement | null)?.dataset.portionQtyFor === portion.id) return
+                                  savePortionEdit(portion.id)
+                                }}
                                 onKeyDown={e => { if (e.key === 'Enter') savePortionEdit(portion.id); if (e.key === 'Escape') setEditingPortionId(null) }}
                                 className="border border-navy/20 rounded-lg px-2 py-1 font-body text-sm text-navy focus:outline-none focus:border-gold"
                               />
                               <input
                                 type="number"
                                 min="0"
+                                data-portion-qty-for={portion.id}
                                 value={portionEditQty}
                                 onChange={e => setPortionEditQty(e.target.value)}
                                 onBlur={() => savePortionEdit(portion.id)}
