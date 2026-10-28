@@ -94,7 +94,8 @@ export default function LoginPage() {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
   return (
-    <div className="min-h-dvh bg-cream flex flex-col items-center justify-center p-6">
+    <div className="h-full overflow-y-auto bg-cream">
+      <div className="min-h-full flex flex-col items-center justify-center p-6">
       {/* Logo */}
       <div className="mb-8 text-center">
         <h1 className="font-display font-black text-navy text-5xl tracking-widest mb-1">YUU</h1>
@@ -216,6 +217,7 @@ export default function LoginPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
