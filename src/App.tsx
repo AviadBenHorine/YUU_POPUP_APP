@@ -86,8 +86,9 @@ function App() {
   }
 
   return (
-    <>
+    <div className="h-dvh flex flex-col overflow-hidden bg-cream">
       {currentRole === 'admin' && <AdminNav />}
+      <div className="flex-1 overflow-hidden relative">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -145,8 +146,9 @@ function App() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      </div>
       <Toast />
-    </>
+    </div>
   )
 }
 

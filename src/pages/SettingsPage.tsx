@@ -393,7 +393,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+    <div className="h-full flex flex-col bg-cream overflow-hidden">
       <TopBar title="הגדרות" titleEn="Settings" />
 
       <div className="flex-1 overflow-y-auto p-4">

@@ -179,7 +179,7 @@ export default function PrepPage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden" dir="rtl">
+    <div className="h-full flex flex-col bg-cream overflow-hidden" dir="rtl">
       <TopBar
         title="הכנות לאירוע"
         titleEn="Event Prep"

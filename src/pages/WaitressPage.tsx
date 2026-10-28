@@ -101,7 +101,7 @@ function PrinterConnectScreen({ onReady }: { onReady: () => void }) {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-cream">
+    <div className="h-full flex flex-col bg-cream">
       <BrowserWarning />
       <TopBar title="הזמנות" titleEn="Orders" />
       <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6 text-center">
@@ -285,7 +285,7 @@ export default function WaitressPage() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+      <div className="h-full flex flex-col bg-cream overflow-hidden">
         <BrowserWarning />
         <TopBar title="הזמנות" titleEn="Orders" />
 

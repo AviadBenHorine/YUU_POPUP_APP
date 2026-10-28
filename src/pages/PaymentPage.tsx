@@ -32,7 +32,7 @@ export default function PaymentPage() {
 
   if (!order) {
     return (
-      <div className="h-dvh flex flex-col bg-cream">
+      <div className="h-full flex flex-col bg-cream">
         <TopBar title="תשלום" titleEn="Payment" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-navy/40 font-body">הזמנה לא נמצאה / Order not found</div>
@@ -100,7 +100,7 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+    <div className="h-full flex flex-col bg-cream overflow-hidden">
       <TopBar title="תשלום" titleEn="Payment" />
 
       <div className="flex-1 overflow-y-auto">

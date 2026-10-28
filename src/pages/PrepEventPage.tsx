@@ -575,7 +575,7 @@ export default function PrepEventPage() {
 
   if (!FIREBASE_ENABLED) {
     return (
-      <div className="h-dvh flex flex-col bg-cream" dir="rtl">
+      <div className="h-full flex flex-col bg-cream" dir="rtl">
         <div className="p-4 border-b border-navy/10 flex items-center gap-3">
           <button onClick={() => navigate('/prep')} className="text-navy/40 hover:text-navy font-body text-sm">
             ← חזרה
@@ -593,7 +593,7 @@ export default function PrepEventPage() {
 
   if (loading) {
     return (
-      <div className="h-dvh bg-cream flex items-center justify-center">
+      <div className="h-full bg-cream flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
       </div>
     )
@@ -601,7 +601,7 @@ export default function PrepEventPage() {
 
   if (!event) {
     return (
-      <div className="h-dvh flex flex-col bg-cream" dir="rtl">
+      <div className="h-full flex flex-col bg-cream" dir="rtl">
         <div className="p-4 border-b border-navy/10">
           <button onClick={() => navigate('/prep')} className="text-navy/40 hover:text-navy font-body text-sm">
             ← חזרה לרשימה
@@ -626,7 +626,7 @@ export default function PrepEventPage() {
   const progPct = totalCount > 0 ? Math.round((totalDone / totalCount) * 100) : 0
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden" dir="rtl">
+    <div className="h-full flex flex-col bg-cream overflow-hidden" dir="rtl">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-navy px-4 pt-2 pb-0 shrink-0">

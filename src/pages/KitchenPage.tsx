@@ -345,7 +345,7 @@ export default function KitchenPage() {
   }, [activeOrders.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+    <div className="h-full flex flex-col bg-cream overflow-hidden">
       <TopBar title="מטבח" titleEn="Kitchen" actions={
         <div className="flex gap-2">
           {doneOrders.length > 0 && (

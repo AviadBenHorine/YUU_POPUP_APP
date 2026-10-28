@@ -250,7 +250,7 @@ export default function AnalyticsPage() {
   )
 
   return (
-    <div className="h-dvh flex flex-col bg-cream overflow-hidden">
+    <div className="h-full flex flex-col bg-cream overflow-hidden">
       <TopBar title="אנליטיקס" titleEn="Analytics" />
 
       <div className="flex-1 overflow-y-auto p-4">
