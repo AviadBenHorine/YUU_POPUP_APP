@@ -1,5 +1,5 @@
 import {
-  doc, setDoc, deleteDoc, onSnapshot,
+  doc, setDoc, onSnapshot,
   collection, getDocs, writeBatch, getDoc,
   increment,
 } from 'firebase/firestore'

@@ -836,7 +836,7 @@ export default function PrepEventPage() {
                     </div>
 
                     {/* Items */}
-                    {visItems.map((item, iIdx) => {
+                    {visItems.map((item) => {
                       const allGroupItems = allItemsForGroup(group.id, 'shop').sort((a, b) => a.order - b.order)
                       const realIdx = allGroupItems.findIndex(i => i.id === item.id)
                       return (
@@ -987,7 +987,7 @@ export default function PrepEventPage() {
                     </div>
 
                     {/* Tasks */}
-                    {visItems.map((item, iIdx) => {
+                    {visItems.map((item) => {
                       const allOwnerItems = allItemsForGroup(owner.id, 'task').sort((a, b) => a.order - b.order)
                       const realIdx = allOwnerItems.findIndex(i => i.id === item.id)
                       return (
