@@ -16,7 +16,7 @@ import {
 import type { InventoryCategory, InventoryItem } from '../types/inventory'
 
 const UNIT_PRESETS = ['יחידות', 'ק"ג', 'ליטר', 'בקבוקים', 'קופסאות', 'חבילות', 'שקיות', 'גרם']
-const LOCATION_PRESETS = ['מחסן ראשי', 'מחסן משני', 'מטבח', 'בר', 'מקרר', 'מקפיא']
+const LOCATION_PRESETS = ['מחסן של אורי', 'אצל אביעד', 'אצל גיא']
 const CATEGORY_ICON_PRESETS = ['🥡', '🍷', '🥫', '🌾', '🥬', '🔧', '🧴', '🥩', '🧂', '☕', '🧊', '📦']
 
 interface ItemFormState {
