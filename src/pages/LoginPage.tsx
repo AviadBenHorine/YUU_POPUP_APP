@@ -155,6 +155,18 @@ export default function LoginPage() {
               </div>
               <span className="text-gold/50 group-hover:text-gold transition-colors text-2xl">›</span>
             </button>
+
+            <button
+              onClick={() => navigate('/inventory')}
+              className="group flex items-center gap-5 px-6 py-5 rounded-2xl border-2 border-gold/40 bg-gold/5 hover:bg-gold/10 hover:border-gold active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="text-4xl">🗃️</span>
+              <div className="text-right flex-1">
+                <div className="font-display font-bold text-navy text-xl">מלאי</div>
+                <div className="text-navy/50 text-sm font-body">Inventory</div>
+              </div>
+              <span className="text-gold/50 group-hover:text-gold transition-colors text-2xl">›</span>
+            </button>
           </div>
         </div>
       ) : (
