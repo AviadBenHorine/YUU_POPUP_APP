@@ -13,6 +13,7 @@ import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
 import PrepPage from './pages/PrepPage'
 import PrepEventPage from './pages/PrepEventPage'
+import InventoryPage from './pages/InventoryPage'
 import AdminNav from './components/AdminNav'
 import { useStore } from './stores/useStore'
 import {
@@ -143,6 +144,12 @@ function App() {
 
         <Route path="/prep" element={<PrepPage />} />
         <Route path="/prep/:eventId" element={<PrepEventPage />} />
+
+        <Route path="/inventory" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <InventoryPage />
+          </ProtectedRoute>
+        } />
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
